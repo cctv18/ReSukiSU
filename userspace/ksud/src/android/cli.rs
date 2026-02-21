@@ -555,10 +555,7 @@ pub fn run() -> Result<()> {
             init_event::on_boot_completed();
             Ok(())
         }
-        Commands::Susfs { command } => {
-            susfs_cli(command);
-            Ok(())
-        }
+        Commands::Susfs { command } => susfs_cli(command),
         Commands::UmountConfig { command } => match command {
             UmountConfigOp::Add { mnt, flags } => umount_config::add_umount(&mnt, flags),
             UmountConfigOp::Del { mnt } => umount_config::del_umount(&mnt),

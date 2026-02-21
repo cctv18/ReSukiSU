@@ -1,9 +1,6 @@
-use std::{
-    fs,
-    os::unix::fs::MetadataExt,
-    process::exit,
-};
+use std::{fs, os::unix::fs::MetadataExt};
 
+use anyhow::Result;
 use clap::Subcommand;
 use libc::{SYS_reboot, c_char, c_int, c_long, c_uint, c_ulong, syscall};
 
@@ -330,13 +327,9 @@ fn str_to_c_array<const N: usize>(s: &str, array: &mut [c_char; N]) {
     array[len] = 0;
 }
 
-fn fetch_metadata(path: &str) -> fs::Metadata {
-    fs::metadata(path).unwrap_or_else(|e| {
-        eprintln!(
-            "[-] Failed to get metadata from path: '{}', error: {}",
-            path, e
-        );
-        exit(e.raw_os_error().unwrap_or(1));
+fn fetch_metadata(path: &str) -> Result<fs::Metadata> {
+    fs::metadata(path).map_err(|e| {
+        anyhow::format_err!("[-] Failed to get metadata from path: '{path}', error: {e}",)
     })
 }
 
@@ -355,7 +348,7 @@ fn copy_metadata_to_sus_kstat(info: &mut SusfsSusKstat, md: &fs::Metadata) {
     info.spoofed_blocks = md.blocks() as libc::c_ulonglong;
 }
 
-fn handle_result(err: c_int, cmd: c_ulong) {
+fn handle_result(err: c_int, cmd: c_ulong) -> Result<()> {
     if err == ERR_CMD_NOT_SUPPORTED {
         println!(
             "[-] CMD: '0x{:x}', SUSFS operation not supported, please enable it in kernel",
@@ -363,25 +356,25 @@ fn handle_result(err: c_int, cmd: c_ulong) {
         );
     }
     if err != 0 && err != ERR_CMD_NOT_SUPPORTED {
-        exit(err);
+        return Err(anyhow::format_err!("{err}").into());
     }
+
+    Ok(())
 }
 
-fn parse_or_default<T: std::str::FromStr>(val: &str, default: T) -> T {
+fn parse_or_default<T: std::str::FromStr>(val: &str, default: T) -> Result<T> {
     if val == "default" {
-        default
+        Ok(default)
     } else {
-        val.parse::<T>().unwrap_or_else(|_| {
-            eprintln!("Invalid number format: {}", val);
-            exit(libc::EINVAL);
-        })
+        val.parse::<T>()
+            .map_err(|_| anyhow::format_err!("Invalid number format: {val}"))
     }
 }
 
-pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
+pub fn susfs_cli(sub_commmand: SuSFSSubCommands) -> Result<()> {
     match sub_commmand {
         SuSFSSubCommands::AddSusPath { path } => {
-            let md = fetch_metadata(&path);
+            let md = fetch_metadata(&path)?;
             let mut info = SusfsSusPath::default();
             str_to_c_array(&path, &mut info.target_pathname);
             info.target_ino = md.ino() as c_ulong;
@@ -389,10 +382,10 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_ADD_SUS_PATH);
-            handle_result(info.err, CMD_SUSFS_ADD_SUS_PATH);
+            handle_result(info.err, CMD_SUSFS_ADD_SUS_PATH)?;
         }
         SuSFSSubCommands::AddSusPathLoop { path } => {
-            let md = fetch_metadata(&path);
+            let md = fetch_metadata(&path)?;
             let mut info = SusfsSusPath::default();
             str_to_c_array(&path, &mut info.target_pathname);
             info.target_ino = md.ino() as c_ulong;
@@ -400,7 +393,7 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_ADD_SUS_PATH_LOOP);
-            handle_result(info.err, CMD_SUSFS_ADD_SUS_PATH_LOOP);
+            handle_result(info.err, CMD_SUSFS_ADD_SUS_PATH_LOOP)?;
         }
         SuSFSSubCommands::SetAndroidDataRootPath { path } => {
             let mut info = ExternalDir::default();
@@ -409,7 +402,7 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH);
-            handle_result(info.err, CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH);
+            handle_result(info.err, CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH)?;
         }
         SuSFSSubCommands::SetSdcardRootPath { path } => {
             let mut info = ExternalDir::default();
@@ -418,22 +411,21 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_SET_SDCARD_ROOT_PATH);
-            handle_result(info.err, CMD_SUSFS_SET_SDCARD_ROOT_PATH);
+            handle_result(info.err, CMD_SUSFS_SET_SDCARD_ROOT_PATH)?;
         }
         SuSFSSubCommands::HideSusMntsForNonSuProcs { enabled } => {
             if enabled > 1 {
-                eprintln!("Invalid value for enabled (0 or 1)");
-                exit(1);
+                return Err(anyhow::format_err!("Invalid value for enabled (0 or 1)"));
             }
             let mut info = SusfsHideSusMnts::default();
             info.enabled = enabled == 1;
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS);
-            handle_result(info.err, CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS);
+            handle_result(info.err, CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS)?;
         }
         SuSFSSubCommands::AddSusKstat { path } => {
-            let md = fetch_metadata(&path);
+            let md = fetch_metadata(&path)?;
             let mut info = SusfsSusKstat::default();
             str_to_c_array(&path, &mut info.target_pathname);
             info.is_statically = false;
@@ -442,10 +434,10 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_ADD_SUS_KSTAT);
-            handle_result(info.err, CMD_SUSFS_ADD_SUS_KSTAT);
+            handle_result(info.err, CMD_SUSFS_ADD_SUS_KSTAT)?;
         }
         SuSFSSubCommands::UpdateSusKstat { path } => {
-            let md = fetch_metadata(&path);
+            let md = fetch_metadata(&path)?;
             let mut info = SusfsSusKstat::default();
             str_to_c_array(&path, &mut info.target_pathname);
             info.is_statically = false;
@@ -455,10 +447,10 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_UPDATE_SUS_KSTAT);
-            handle_result(info.err, CMD_SUSFS_UPDATE_SUS_KSTAT);
+            handle_result(info.err, CMD_SUSFS_UPDATE_SUS_KSTAT)?;
         }
         SuSFSSubCommands::UpdateSusKstatFullClone { path } => {
-            let md = fetch_metadata(&path);
+            let md = fetch_metadata(&path)?;
             let mut info = SusfsSusKstat::default();
             str_to_c_array(&path, &mut info.target_pathname);
             info.is_statically = false;
@@ -466,7 +458,7 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_UPDATE_SUS_KSTAT);
-            handle_result(info.err, CMD_SUSFS_UPDATE_SUS_KSTAT);
+            handle_result(info.err, CMD_SUSFS_UPDATE_SUS_KSTAT)?;
         }
         SuSFSSubCommands::SetUname { release, version } => {
             let mut info = SusfsUname::default();
@@ -475,32 +467,24 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_SET_UNAME);
-            handle_result(info.err, CMD_SUSFS_SET_UNAME);
+            handle_result(info.err, CMD_SUSFS_SET_UNAME)?;
         }
         SuSFSSubCommands::EnableLog { enabled } => {
             if enabled > 1 {
-                eprintln!("Invalid value for enabled (0 or 1)");
-                exit(1);
+                return Err(anyhow::format_err!("Invalid value for enabled (0 or 1)"));
             }
             let mut info = SusfsLog::default();
             info.enabled = enabled == 1;
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_ENABLE_LOG);
-            handle_result(info.err, CMD_SUSFS_ENABLE_LOG);
+            handle_result(info.err, CMD_SUSFS_ENABLE_LOG)?;
         }
         SuSFSSubCommands::SetCmdlineOrBootconfig { path } => {
-            let abs_path = fs::canonicalize(&path).unwrap_or_else(|e| {
-                eprintln!("realpath failed: {}", e);
-                exit(e.raw_os_error().unwrap_or(1));
-            });
-            let content = fs::read(&abs_path).unwrap_or_else(|e| {
-                eprintln!("Error opening file: {}", e);
-                exit(e.raw_os_error().unwrap_or(1));
-            });
+            let abs_path = fs::canonicalize(&path)?;
+            let content = fs::read(&abs_path)?;
             if content.len() >= SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE {
-                eprintln!("file_size too long");
-                exit(libc::EINVAL);
+                return Err(anyhow::format_err!("file_size too long").into());
             }
 
             let mut info = Box::new(SusfsSpoofCmdline {
@@ -513,17 +497,16 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             }
 
             susfs_ctl(&mut info, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG);
-            handle_result(info.err, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG);
+            handle_result(info.err, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG)?;
         }
         SuSFSSubCommands::AddOpenRedirect {
             target_path,
             redirected_path,
         } => {
-            let abs_target = fs::canonicalize(&target_path).expect("realpath target failed");
-            let abs_redirect =
-                fs::canonicalize(&redirected_path).expect("realpath redirect failed");
+            let abs_target = fs::canonicalize(&target_path)?;
+            let abs_redirect = fs::canonicalize(&redirected_path)?;
 
-            let md = fetch_metadata(abs_target.to_str().unwrap());
+            let md = fetch_metadata(abs_target.to_str().unwrap())?;
 
             let mut info = SusfsOpenRedirect::default();
             str_to_c_array(abs_target.to_str().unwrap(), &mut info.target_pathname);
@@ -535,7 +518,7 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_ADD_OPEN_REDIRECT);
-            handle_result(info.err, CMD_SUSFS_ADD_OPEN_REDIRECT);
+            handle_result(info.err, CMD_SUSFS_ADD_OPEN_REDIRECT)?;
         }
         SuSFSSubCommands::AddSusMap { path } => {
             let mut info = SusfsSusMap::default();
@@ -543,17 +526,17 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_ADD_SUS_MAP);
-            handle_result(info.err, CMD_SUSFS_ADD_SUS_MAP);
+            handle_result(info.err, CMD_SUSFS_ADD_SUS_MAP)?;
         }
         SuSFSSubCommands::EnableAvcLogSpoofing { enabled } => {
             if enabled > 1 {
-                exit(1);
+                return Err(anyhow::format_err!("Invalid status number"));
             }
             let mut info = SusfsAvcLogSpoofing::default();
             info.enabled = enabled == 1;
             info.err = ERR_CMD_NOT_SUPPORTED;
             susfs_ctl(&mut info, CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING);
-            handle_result(info.err, CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING);
+            handle_result(info.err, CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING)?;
         }
         SuSFSSubCommands::Show { info_type } => match info_type {
             ShowType::Version => {
@@ -562,7 +545,7 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
                     err: ERR_CMD_NOT_SUPPORTED,
                 };
                 susfs_ctl(&mut info, CMD_SUSFS_SHOW_VERSION);
-                handle_result(info.err, CMD_SUSFS_SHOW_VERSION);
+                handle_result(info.err, CMD_SUSFS_SHOW_VERSION)?;
 
                 if info.err == 0 {
                     let len = info
@@ -587,7 +570,7 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
                     err: ERR_CMD_NOT_SUPPORTED,
                 });
                 susfs_ctl(&mut *info, CMD_SUSFS_SHOW_ENABLED_FEATURES);
-                handle_result(info.err, CMD_SUSFS_SHOW_ENABLED_FEATURES);
+                handle_result(info.err, CMD_SUSFS_SHOW_ENABLED_FEATURES)?;
 
                 if info.err == 0 {
                     let len = info
@@ -610,7 +593,7 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
                     err: ERR_CMD_NOT_SUPPORTED,
                 };
                 susfs_ctl(&mut info, CMD_SUSFS_SHOW_VARIANT);
-                handle_result(info.err, CMD_SUSFS_SHOW_VARIANT);
+                handle_result(info.err, CMD_SUSFS_SHOW_VARIANT)?;
 
                 if info.err == 0 {
                     let len = info
@@ -641,24 +624,24 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             blocks,
             blksize,
         } => {
-            let md = fetch_metadata(&path);
+            let md = fetch_metadata(&path)?;
             let mut info = SusfsSusKstat::default();
 
             info.target_ino = md.ino() as c_ulong;
             info.is_statically = true;
 
-            let s_ino = parse_or_default(&ino, md.ino());
-            let s_dev = parse_or_default(&dev, md.dev());
-            let s_nlink = parse_or_default(&nlink, md.nlink() as u64);
-            let s_size = parse_or_default(&size, md.size());
-            let s_atime = parse_or_default(&atime, md.atime());
-            let s_atime_nsec = parse_or_default(&atime_nsec, md.atime_nsec());
-            let s_mtime = parse_or_default(&mtime, md.mtime());
-            let s_mtime_nsec = parse_or_default(&mtime_nsec, md.mtime_nsec());
-            let s_ctime = parse_or_default(&ctime, md.ctime());
-            let s_ctime_nsec = parse_or_default(&ctime_nsec, md.ctime_nsec());
-            let s_blocks = parse_or_default(&blocks, md.blocks());
-            let s_blksize = parse_or_default(&blksize, md.blksize());
+            let s_ino = parse_or_default(&ino, md.ino())?;
+            let s_dev = parse_or_default(&dev, md.dev())?;
+            let s_nlink = parse_or_default(&nlink, md.nlink() as u64)?;
+            let s_size = parse_or_default(&size, md.size())?;
+            let s_atime = parse_or_default(&atime, md.atime())?;
+            let s_atime_nsec = parse_or_default(&atime_nsec, md.atime_nsec())?;
+            let s_mtime = parse_or_default(&mtime, md.mtime())?;
+            let s_mtime_nsec = parse_or_default(&mtime_nsec, md.mtime_nsec())?;
+            let s_ctime = parse_or_default(&ctime, md.ctime())?;
+            let s_ctime_nsec = parse_or_default(&ctime_nsec, md.ctime_nsec())?;
+            let s_blocks = parse_or_default(&blocks, md.blocks())?;
+            let s_blksize = parse_or_default(&blksize, md.blksize())?;
 
             str_to_c_array(&path, &mut info.target_pathname);
 
@@ -678,7 +661,9 @@ pub fn susfs_cli(sub_commmand: SuSFSSubCommands) {
             info.err = ERR_CMD_NOT_SUPPORTED;
 
             susfs_ctl(&mut info, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY);
-            handle_result(info.err, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY);
+            handle_result(info.err, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY)?;
         }
     }
+
+    Ok(())
 }
