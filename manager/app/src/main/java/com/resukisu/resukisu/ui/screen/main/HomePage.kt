@@ -496,6 +496,7 @@ private fun StatusCard(
                             )
 
                             if (Natives.isLateLoadMode) {
+                                Spacer(Modifier.width(6.dp))
                                 LabelText(
                                     label = stringResource(id = R.string.jailbreak_mode),
                                     contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -503,10 +504,9 @@ private fun StatusCard(
                                 )
                             }
 
-                            Spacer(Modifier.width(6.dp))
-
                             // 架构标签
                             if (Os.uname().machine != "aarch64") {
+                                Spacer(Modifier.width(6.dp))
                                 LabelText(
                                     label = Os.uname().machine,
                                     contentColor = MaterialTheme.colorScheme.onPrimary,
