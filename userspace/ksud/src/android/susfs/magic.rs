@@ -2,10 +2,7 @@ pub(super) const KSU_INSTALL_MAGIC1: u64 = 0xDEAD_BEEF;
 pub(super) const SUSFS_MAGIC: u64 = 0xFAFA_FAFA;
 
 pub(super) const CMD_SUSFS_ADD_SUS_PATH: u64 = 0x55550;
-pub(super) const CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH: u64 = 0x55551;
-pub(super) const CMD_SUSFS_SET_SDCARD_ROOT_PATH: u64 = 0x55552;
 pub(super) const CMD_SUSFS_ADD_SUS_PATH_LOOP: u64 = 0x55553;
-pub(super) const CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS: u64 = 0x55561;
 pub(super) const CMD_SUSFS_ADD_SUS_KSTAT: u64 = 0x55570;
 pub(super) const CMD_SUSFS_UPDATE_SUS_KSTAT: u64 = 0x55571;
 pub(super) const CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY: u64 = 0x55572;
