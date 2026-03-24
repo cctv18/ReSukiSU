@@ -20,6 +20,7 @@ import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -76,6 +77,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -103,6 +105,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.resukisu.resukisu.ui.theme.CardConfig
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -289,14 +293,43 @@ fun SettingsTextFieldWidget(
     val interactionSource = interactionSource ?: remember { MutableInteractionSource() }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    val isFocused by interactionSource.collectIsFocusedAsState()
+    val focused by interactionSource.collectIsFocusedAsState()
+    val pressed by interactionSource.collectIsPressedAsState()
     val isImeVisible = WindowInsets.isImeVisible
+    val coroutineScope = rememberCoroutineScope()
 
     val isClickableMode = onClick != null
 
+    val hasFocusReassignBug = Build.VERSION.SDK_INT <= Build.VERSION_CODES.O_MR1
+    var allowFocus by remember { mutableStateOf(!hasFocusReassignBug) }
+
+    LaunchedEffect(pressed) {
+        if (pressed && hasFocusReassignBug && !allowFocus) {
+            allowFocus = true
+        }
+    }
+
+    LaunchedEffect(allowFocus) {
+        if (allowFocus && hasFocusReassignBug) {
+            delay(100)
+            focusRequester.requestFocus()
+        }
+    }
+
+    LaunchedEffect(focused) {
+        if (!focused && hasFocusReassignBug) {
+            allowFocus = false
+        }
+    }
     LaunchedEffect(isImeVisible) {
-        if (!isImeVisible && isFocused) {
-            focusManager.clearFocus()
+        if (!isImeVisible && focused) {
+            if (hasFocusReassignBug) {
+                allowFocus = false
+                delay(100)
+                focusManager.clearFocus()
+            } else {
+                focusManager.clearFocus()
+            }
         }
     }
 
@@ -334,7 +367,7 @@ fun SettingsTextFieldWidget(
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
                     .focusProperties {
-                        canFocus = !isClickableMode
+                        canFocus = allowFocus && !isClickableMode
                     }
                     .padding(top = 5.dp),
                 enabled = enabled,
@@ -342,7 +375,18 @@ fun SettingsTextFieldWidget(
                 textStyle = textStyle,
                 cursorBrush = if (error.isBlank()) cursorBrush else SolidColor(MaterialTheme.colorScheme.error),
                 keyboardOptions = keyboardOptions,
-                onKeyboardAction = onKeyboardAction,
+                onKeyboardAction = {
+                    onKeyboardAction?.onKeyboardAction(it)
+                    if (hasFocusReassignBug) {
+                        coroutineScope.launch {
+                            allowFocus = false
+                            delay(100)
+                            focusManager.clearFocus()
+                        }
+                    } else {
+                        focusManager.clearFocus()
+                    }
+                },
                 lineLimits = lineLimits,
                 onTextLayout = currentOnTextLayout,
                 interactionSource = interactionSource,
@@ -353,7 +397,7 @@ fun SettingsTextFieldWidget(
                     Column {
                         Box(
                             modifier = Modifier.clickable(
-                                enabled = onClick != null || !isFocused
+                                enabled = onClick != null || !focused
                             ) {
                                 onClickInternal()
                             }
@@ -366,7 +410,7 @@ fun SettingsTextFieldWidget(
                                 )
                             }
 
-                            if (error.isNotBlank() && !isFocused && state.text.isBlank()) {
+                            if (error.isNotBlank() && !focused && state.text.isBlank()) {
                                 Text(
                                     text = error,
                                     color = MaterialTheme.colorScheme.error,
@@ -378,7 +422,7 @@ fun SettingsTextFieldWidget(
                         }
 
                         AnimatedVisibility(
-                            visible = isFocused,
+                            visible = focused,
                             enter = expandHorizontally(
                                 animationSpec = spring(stiffness = SharedStiffness),
                                 expandFrom = Alignment.Start // Unroll downwards like a blind
@@ -410,7 +454,7 @@ fun SettingsTextFieldWidget(
             )
 
             AnimatedVisibility(
-                visible = error.isNotBlank() && (isFocused || state.text.isNotBlank()),
+                visible = error.isNotBlank() && (focused || state.text.isNotBlank()),
                 enter = expandHorizontally(
                     animationSpec = spring(stiffness = SharedStiffness),
                     expandFrom = Alignment.Start // Unroll downwards like a blind
