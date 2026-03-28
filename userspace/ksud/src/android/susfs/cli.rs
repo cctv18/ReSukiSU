@@ -3,8 +3,13 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::android::susfs::api::{self};
 
-#[derive(Parser, Debug)]
-#[command(long_about = None)]
+#[derive(Debug, Args)]
+pub struct SusfsArgs {
+    #[command(subcommand)]
+    pub command: SuSFSSubCommands,
+}
+
+#[derive(Debug, Subcommand)]
 pub enum SuSFSSubCommands {
     /// Added path and all its sub-paths will be hidden from several syscalls
     AddSusPath {
@@ -94,8 +99,19 @@ pub struct AddSusKstatStaticallyArgs {
     blksize: String,
 }
 
+#[derive(Debug, Parser)]
+struct SusfsParser {
+    #[command(flatten)]
+    arg: SusfsArgs,
+}
+
 pub fn run_from_args(args: &[String]) -> Result<()> {
-    let command = SuSFSSubCommands::try_parse_from(args)?;
+    let parser = SusfsParser::try_parse_from(args)?;
+    run_main(parser.arg.command)
+}
+
+pub fn run_main(command: SuSFSSubCommands) -> Result<()> {
+    //let command = SuSFSSubCommands::try_parse_from(args)?;
     match command {
         SuSFSSubCommands::AddSusPath { path } => {
             api::add_sus_path(&api::SusPathType::Normal, &path)?;

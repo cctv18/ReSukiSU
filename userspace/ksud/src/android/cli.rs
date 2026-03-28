@@ -5,6 +5,8 @@ use std::path::PathBuf;
 
 use log::{LevelFilter, error, info};
 
+#[cfg(all(target_arch = "aarch64", target_os = "android"))]
+use crate::android::susfs;
 use crate::{
     android::{
         debug, dynamic_manager, feature, init_event, ksucalls,
@@ -129,10 +131,7 @@ enum Commands {
 
     #[cfg(all(target_arch = "aarch64", target_os = "android"))]
     /// Manage susfs component
-    Susfs {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
-    },
+    Susfs(susfs::cli::SusfsArgs),
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -528,6 +527,7 @@ mod kpm_cmd {
     }
 }
 
+#[allow(clippy::similar_names)]
 pub fn run() -> Result<()> {
     android_logger::init_once(
         Config::default()
@@ -560,11 +560,7 @@ pub fn run() -> Result<()> {
 
     let result = match cli.command {
         #[cfg(all(target_arch = "aarch64", target_os = "android"))]
-        Commands::Susfs { args } => {
-            let mut full_args = vec!["ksu_susfs".to_string()];
-            full_args.extend(args);
-            crate::android::susfs::cli::run_from_args(&full_args)
-        }
+        Commands::Susfs(args) => crate::android::susfs::cli::run_main(args.command),
         Commands::PostFsData => init_event::on_post_data_fs(),
         Commands::BootCompleted => {
             init_event::on_boot_completed();
