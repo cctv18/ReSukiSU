@@ -11,34 +11,48 @@ pub struct SusfsArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum SuSFSSubCommands {
-    /// Added path and all its sub-paths will be hidden from several syscalls
+    ///  Added path and all its sub-paths will be hidden for umounted app process from several syscalls
+    /// Please be reminded that if the target path has upper mounts then make sure the proper layer is added, otherwise it may not be effective for the target process.
     #[command(name = "add_sus_path")]
     AddSusPath {
         #[arg(help = "Path of file or directory")]
         path: String,
     },
-    /// Similar to add_sus_path but flagged as SUS_PATH per zygote spawned process (not for sdcard)
-    #[command(name = "add_sus_path_loop")]
+    ///  The only difference to add_sus_path is that the added sus_path via this cli will be flagged as SUS_PATH again for the app process when it is being spawned by zygote and marked umounted
+    /// Also it does not check if the path is existed or not, instead it checks for empty string only, so be careful what to add.
     AddSusPathLoop {
         #[arg(help = "Path not inside sdcard")]
         path: String,
     },
     /// Add path to store original stat info in kernel memory (before bind mount/overlay)
     #[command(name = "add_sus_kstat")]
-    AddSusKstat { path: String },
+    AddSusKstat {
+        /// Add the desired path BEFORE it gets bind mounted or overlayed, this is used for storing original stat info in kernel memory
+        /// This command must be completed with <update_sus_kstat> later after the added path is bind mounted or overlayed
+        path: String,
+    },
     /// Update the target ino for a path added via add_sus_kstat
     #[command(name = "update_sus_kstat")]
-    UpdateSusKstat { path: String },
+    UpdateSusKstat {
+        /// Add the desired path you have added before via <add_sus_kstat> to complete the kstat spoofing procedure\n");
+        /// This updates the target ino, but size and blocks are remained the same as current stat
+        path: String,
+    },
     /// Update target ino only, other stat members remain same as original
     #[command(name = "update_sus_kstat_full_clone")]
-    UpdateSusKstatFullClone { path: String },
-    /// Spoof uname release and version
+    UpdateSusKstatFullClone {
+        /// Add the desired path you have added before via <add_sus_kstat> to complete the kstat spoofing procedure
+        /// This updates the target ino only, other stat members are remained the same as the original stat
+        path: String,
+    },
+    /// Spoof uname for all processes, set string to 'default' to imply the function to use original string
     #[command(name = "set_uname")]
     SetUname { release: String, version: String },
     /// Enable/Disable susfs log in kernel
     #[command(name = "enable_log")]
     EnableLog {
-        #[arg(help = "0: disable, 1: enable")]
+        /// 0: disable susfs log in kernel
+        /// 1: enable susfs log in kernel
         enabled: u8,
     },
     /// Spoof /proc/cmdline or /proc/bootconfig
@@ -56,17 +70,21 @@ pub enum SuSFSSubCommands {
         ///4: Effective for processes that are marked umounted (include most of the init spawned process, use it carefully!)
         uid_scheme: u64,
     },
-    /// Hidden from /proc/self/maps etc.
+    /// Added real file path which gets mmapped will be hidden from /proc/self/[maps|smaps|smaps_rollup|map_files|mem|pagemap]
     #[command(name = "add_sus_map")]
     AddSusMap { path: String },
     /// Enable/Disable spoofing sus 'su' context in avc log
     #[command(name = "enable_avc_log_spoofing")]
     EnableAvcLogSpoofing {
-        #[arg(help = "0: disable, 1: enable")]
+        /// 0: disable spoofing the sus tcontext 'su' shown in avc log in kernel
+        /// 1: enable spoofing the sus tcontext 'su' with 'u:r:priv_app:s0:c512,c768' shown in avc log in kernel
         enabled: u8,
     },
     /// Show version, enabled_features, or variant
     Show {
+        /// version: show the current susfs version implemented in kernel
+        /// enabled_features: show the current implemented susfs features in kernel
+        /// variant: show the current variant: GKI or NON-GKI
         #[command(subcommand)]
         info_type: ShowType,
     },
