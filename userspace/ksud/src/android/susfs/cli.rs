@@ -11,7 +11,7 @@ pub struct SusfsArgs {
     #[command(subcommand)]
     pub command: SuSFSSubCommands,
     /// Removed in config
-    #[arg(long, default_value = "true")]
+    #[arg(long, default_value = "false")]
     pub remove: bool,
 }
 
