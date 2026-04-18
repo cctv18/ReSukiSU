@@ -5,6 +5,7 @@ kernelsu-objs += policy/feature.o
 kernelsu-objs += feature/sucompat.o
 kernelsu-objs += feature/kernel_umount.o
 kernelsu-objs += feature/sulog.o
+kernelsu-objs += feature/adb_root.o
 kernelsu-objs += hook/setuid_hook.o
 
 ifndef CONFIG_KSU_DISABLE_MANAGER
@@ -18,12 +19,16 @@ kernelsu-objs += compat/kernel_compat.o
 kernelsu-objs += infra/su_mount_ns.o
 kernelsu-objs += infra/seccomp_cache.o
 kernelsu-objs += infra/file_wrapper.o
+kernelsu-objs += infra/event_queue.o
 kernelsu-objs += runtime/boot_event.o
 kernelsu-objs += runtime/ksud_integration.o
 
 kernelsu-objs += selinux/selinux.o
 kernelsu-objs += selinux/sepolicy.o
 kernelsu-objs += selinux/rules.o
+
+kernelsu-objs += sulog/event.o
+kernelsu-objs += sulog/fd.o
 
 kernelsu-objs += supercall/dispatch.o
 kernelsu-objs += supercall/perm.o
@@ -91,9 +96,23 @@ $(info -- $(REPO_NAME) version name: $(KSU_VERSION_FULL))
 ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
 ccflags-y += -DKSU_VERSION_FULL=\"$(KSU_VERSION_FULL)\"
 
+ifdef KBUILD_EXTMOD
+ifeq ($(CONFIG_KSU_DISABLE_MANAGER),y)
+ccflags-y += -DCONFIG_KSU_DISABLE_MANAGER
+endif
+ifeq ($(CONFIG_KSU_DISABLE_POLICY),y)
+ccflags-y += -DCONFIG_KSU_DISABLE_POLICY
+endif
+ifeq ($(CONFIG_KSU_DEBUG),y)
+ccflags-y += -DCONFIG_KSU_DEBUG
+endif
+ifeq ($(CONFIG_KSU_MULTI_MANAGER_SUPPORT), y)
+ccflags-y += -DCONFIG_KSU_MULTI_MANAGER_SUPPORT
+endif
+endif
+
 ifeq ($(CONFIG_KSU_MULTI_MANAGER_SUPPORT), y)
 $(info -- Supported Unofficial Manager: MKSU, RKSU, KOWSU, SukiSU-Ultra, ReSukiSU )
-ccflags-y += -DCONFIG_KSU_MULTI_MANAGER_SUPPORT
 endif
 
 ifeq ($(CONFIG_KSU_MANUAL_HOOK), y)

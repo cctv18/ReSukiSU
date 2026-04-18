@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use log::{info, warn};
+use rustix::cstr;
 use std::process::Command;
 
 use crate::android::module::{handle_updated_modules, metamodule, prune_modules};
@@ -35,7 +36,7 @@ fn dump_process_info(label: &str) {
     );
 }
 
-pub fn run(kmi: Option<String>) -> Result<()> {
+pub fn run(package_name: &String, kmi: Option<String>, allow_shell: bool) -> Result<()> {
     utils::daemonize(false)?;
     info!("late-load command triggered!");
     dump_process_info("late-load start");
@@ -53,12 +54,17 @@ pub fn run(kmi: Option<String>) -> Result<()> {
 
         // 3. Get kernelsu.ko from embedded assets
         let ko_name = format!("{kmi}_kernelsu.ko");
-        let ko_data = assets::get_asset(&ko_name)
+        let ko_data = assets::get_asset_data(&ko_name)
             .with_context(|| format!("Failed to get {ko_name} from assets"))?;
 
         // 4. Load kernelsu.ko from memory with manual relocation
         info!("Loading kernelsu.ko for KMI {kmi}...");
-        ksuinit::load_module(ko_data.as_ref().as_ref()).context("Failed to load kernelsu.ko")?;
+        let params = if allow_shell {
+            cstr!("allow_shell=1")
+        } else {
+            cstr!("")
+        };
+        ksuinit::load_module(&ko_data, params).context("Failed to load kernelsu.ko")?;
         info!("kernelsu.ko loaded successfully!");
         dump_process_info("after load_module");
     }
@@ -73,7 +79,7 @@ pub fn run(kmi: Option<String>) -> Result<()> {
         warn!("clear temp configs failed: {e}");
     }
 
-    utils::install().context("Failed to install ksud")?;
+    utils::install(None).context("Failed to install ksud")?;
 
     // 5. Handle module updates
     if let Err(e) = handle_updated_modules() {
@@ -129,11 +135,12 @@ pub fn run(kmi: Option<String>) -> Result<()> {
     init_event::run_stage("boot-completed", false);
 
     // 15. Restart Manager so it gets a fresh ksu fd from the newly loaded kernel module
-    info!("Restarting KernelSU Manager...");
-    let pkg = "com.resukisu.resukisu";
-    let _ = Command::new("am").args(["force-stop", pkg]).status();
+    info!("Restarting KernelSU Manager {package_name}...");
     let _ = Command::new("am")
-        .args(["start", "-n", &format!("{pkg}/.ui.MainActivity")])
+        .args(["force-stop", package_name])
+        .status();
+    let _ = Command::new("am")
+        .args(["start", "-n", &format!("{package_name}/.ui.MainActivity")])
         .status();
 
     Ok(())

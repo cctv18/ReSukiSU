@@ -6,6 +6,7 @@
 #include <generated/utsrelease.h>
 #include <generated/compile.h>
 #include <linux/version.h> /* LINUX_VERSION_CODE, KERNEL_VERSION macros */
+#include <linux/moduleparam.h>
 
 #ifdef CONFIG_KSU_SUSFS
 #include <linux/susfs.h>
@@ -20,12 +21,12 @@
 #include "manager/throne_tracker.h"
 #include "runtime/ksud.h"
 #include "runtime/ksud_boot.h"
+#include "feature/sulog.h"
 #include "supercall/supercall.h"
 #include "ksu.h"
 #include "infra/file_wrapper.h"
 #include "selinux/selinux.h"
-
-#include "feature/sulog.h"
+#include "feature/adb_root.h"
 #include "feature/dynamic_manager.h"
 #include "feature/sucompat.h"
 #include "hook/setuid_hook.h"
@@ -51,7 +52,7 @@
 #include <linux/random.h>
 unsigned long __stack_chk_guard __ro_after_init __attribute__((visibility("hidden")));
 
-__attribute__((no_stack_protector)) void ksu_setup_stack_chk_guard()
+__attribute__((no_stack_protector)) void __init ksu_setup_stack_chk_guard()
 {
     unsigned long canary;
 
@@ -113,6 +114,12 @@ static inline void ksu_hook_exit(void)
 #endif
 }
 
+#ifdef CONFIG_KSU_DEBUG
+bool allow_shell = true;
+#else
+bool allow_shell = false;
+#endif
+
 int __init kernelsu_init(void)
 {
     pr_info("Initialized on: %s (%s) with driver version: %u\n", UTS_RELEASE, UTS_MACHINE, KSU_VERSION);
@@ -149,12 +156,18 @@ int __init kernelsu_init(void)
     pr_alert("*************************************************************");
 #endif
 
+    if (allow_shell) {
+        pr_alert("shell is allowed at init!");
+    }
+
     ksu_cred = prepare_creds();
     if (!ksu_cred) {
         pr_err("prepare cred failed!\n");
     }
 
     ksu_feature_init();
+    ksu_sulog_init();
+    ksu_adb_root_init();
 
     ksu_supercalls_init();
 
@@ -184,11 +197,6 @@ int __init kernelsu_init(void)
         ksu_observer_init();
         ksu_file_wrapper_init();
 
-        ksu_sulog_init();
-#ifndef CONFIG_KSU_DISABLE_MANAGER
-        ksu_dynamic_manager_init();
-#endif
-
         ksu_boot_completed = true;
         track_throne(false, true, false);
 
@@ -217,17 +225,13 @@ int __init kernelsu_init(void)
     return 0;
 }
 
-void kernelsu_exit(void)
+void __exit kernelsu_exit(void)
 {
     // Phase 1: Stop all hooks first to prevent new callbacks
     ksu_hook_exit();
     ksu_supercalls_exit();
     if (!ksu_late_loaded)
         ksu_ksud_exit();
-#ifndef CONFIG_KSU_DISABLE_MANAGER
-    ksu_dynamic_manager_exit();
-#endif
-    ksu_sulog_exit();
 
     // Wait for any in-flight RCU readers (e.g. handler traversing allow_list)
     synchronize_rcu();
@@ -239,6 +243,8 @@ void kernelsu_exit(void)
 
     ksu_allowlist_exit();
 
+    ksu_adb_root_exit();
+    ksu_sulog_exit();
     ksu_feature_exit();
 
     if (ksu_cred) {
@@ -252,6 +258,7 @@ module_init(kernelsu_init_early);
 module_init(kernelsu_init);
 #endif
 module_exit(kernelsu_exit);
+module_param(allow_shell, bool, 0);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("weishu");

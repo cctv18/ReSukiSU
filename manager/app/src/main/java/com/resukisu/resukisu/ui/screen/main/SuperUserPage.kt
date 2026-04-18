@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
@@ -65,7 +66,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -105,6 +105,7 @@ import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ksuApp
 import com.resukisu.resukisu.ui.component.FabMenuPresets
 import com.resukisu.resukisu.ui.component.SearchAppBar
+import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
 import com.resukisu.resukisu.ui.component.VerticalExpandableFab
 import com.resukisu.resukisu.ui.component.settings.SettingsBaseWidget
 import com.resukisu.resukisu.ui.component.settings.splicedLazyColumnGroup
@@ -148,6 +149,8 @@ fun SuperUserPage(bottomPadding: Dp) {
 
     val backupLauncher = ModuleModify.rememberAllowlistBackupLauncher(context, snackBarHostState)
     val restoreLauncher = ModuleModify.rememberAllowlistRestoreLauncher(context, snackBarHostState)
+
+    val navigator = LocalNavigator.current
 
     LaunchedEffect(Unit) {
         viewModel.search = ""
@@ -232,6 +235,16 @@ fun SuperUserPage(bottomPadding: Dp) {
                         )
                     }
                 },
+                navigationContent = {
+                    IconButton(onClick = {
+                        navigator.push(Route.Sulog)
+                    }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.Article,
+                            contentDescription = stringResource(R.string.sulog)
+                        )
+                    }
+                },
                 scrollBehavior = scrollBehavior,
                 searchBarPlaceHolderText = stringResource(R.string.search_apps),
             )
@@ -239,7 +252,7 @@ fun SuperUserPage(bottomPadding: Dp) {
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         snackbarHost = {
-            SnackbarHost(hostState = snackBarHostState)
+            SwipeableSnackbarHost(hostState = snackBarHostState)
         },
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         floatingActionButton = {
@@ -775,7 +788,6 @@ private fun AppGroupItem(
                         LabelText(
                             label = "UMOUNT",
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
                 }
@@ -783,12 +795,11 @@ private fun AppGroupItem(
                     LabelText(
                         label = "CUSTOM",
                         containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     )
                 } else if (!appGroup.allowSu) {
                     LabelText(
                         label = "DEFAULT",
-                        containerColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
                 if (appGroup.apps.size > 1) {
@@ -796,7 +807,6 @@ private fun AppGroupItem(
                         LabelText(
                             label = it,
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }

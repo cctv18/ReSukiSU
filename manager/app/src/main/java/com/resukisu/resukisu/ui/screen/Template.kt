@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -254,24 +255,20 @@ private fun TemplateItem(
                 LabelText(
                     label = "GID: ${template.gid}",
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 LabelText(
                     label = template.context,
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 if (template.local) {
                     LabelText(
                         label = stringResource(R.string.local),
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 } else {
                     LabelText(
                         label = stringResource(R.string.remote),
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }
@@ -352,7 +349,7 @@ private fun TopBar(
 fun LabelText(
     label: String,
     containerColor: Color = MaterialTheme.colorScheme.primary,
-    contentColor: Color = MaterialTheme.colorScheme.onPrimary
+    contentColor: Color = contentColorFor(containerColor)
 ) {
     Surface(
         shape = RoundedCornerShape(4.dp),
