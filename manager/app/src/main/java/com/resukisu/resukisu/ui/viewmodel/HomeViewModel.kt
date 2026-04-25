@@ -13,8 +13,7 @@ import com.resukisu.resukisu.KernelVersion
 import com.resukisu.resukisu.Natives
 import com.resukisu.resukisu.getKernelVersion
 import com.resukisu.resukisu.ksuApp
-import com.resukisu.resukisu.ui.susfs.util.SuSFSManager
-import com.resukisu.resukisu.ui.util.downloader.checkNewVersion
+import com.resukisu.resukisu.ui.util.checkNewVersion
 import com.resukisu.resukisu.ui.util.getKpmModuleCount
 import com.resukisu.resukisu.ui.util.getKpmVersion
 import com.resukisu.resukisu.ui.util.getMetaModuleImplement
@@ -231,9 +230,7 @@ class HomeViewModel : ViewModel() {
                     val susfsInfo = loadSuSFSInfo()
                     systemInfo = systemInfo.copy(
                         susfsEnabled = susfsInfo.first,
-                        susfsVersionSupported = susfsInfo.first && SuSFSManager.isBinaryAvailable(
-                            context
-                        ), // enabled & have binary
+                        susfsVersionSupported = susfsInfo.first,
                         susfsVersion = susfsInfo.second,
                         susfsFeatures = susfsInfo.third,
                     )
