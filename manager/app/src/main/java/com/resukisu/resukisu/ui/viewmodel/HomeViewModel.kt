@@ -382,7 +382,7 @@ class HomeViewModel : ViewModel() {
     private suspend fun loadSuSFSInfo(): Triple<Boolean, String, String> {
         return withContext(Dispatchers.IO) {
             val susfsEnabled = try {
-                getSuSFSStatus().equals("true", ignoreCase = true)
+                getSuSFSStatus()
             } catch (_: Exception) {
                 false
             }

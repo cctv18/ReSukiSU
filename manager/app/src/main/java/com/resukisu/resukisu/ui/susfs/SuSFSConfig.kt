@@ -208,7 +208,7 @@ fun SuSFSConfigScreen() {
                             SettingsBaseWidget(
                                 icon = Icons.Filled.Info,
                                 title = stringResource(R.string.susfs_config_description),
-                                description = uiState.configPath,
+                                description = "/data/adb/ksu/.susfs.json",
                             ) {}
                         }
                         item {

@@ -20,8 +20,10 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-private const val SUSFS_CONFIG_PATH = "/data/adb/ksu/.susfs.json"
-private const val DEFAULT_VALUE = "default"
+private inline val susfsConfigPath: String
+    get() = "/data/adb/ksu/.susfs.json"
+private inline val defaultSusfsValue: String
+    get() = "default"
 
 data class SuSFSFeatureStatus(
     val key: String,
@@ -52,12 +54,10 @@ data class SuSFSUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val commandRunning: Boolean = false,
-    val configPath: String = SUSFS_CONFIG_PATH,
-    val configExists: Boolean = false,
     val enabled: Boolean = false,
     val versionText: String = "",
-    val unameValue: String = DEFAULT_VALUE,
-    val buildTimeValue: String = DEFAULT_VALUE,
+    val unameValue: String = defaultSusfsValue,
+    val buildTimeValue: String = defaultSusfsValue,
     val avcLogSpoofing: Boolean = false,
     val susPaths: List<String> = emptyList(),
     val susLoopPaths: List<String> = emptyList(),
@@ -112,9 +112,9 @@ class SuSFSScreenViewModel : ViewModel() {
     }
 
     fun setUnameAndBuildTime(unameValue: String, buildTimeValue: String) {
-        val uname = unameValue.trim().ifEmpty { DEFAULT_VALUE }
-        val buildTime = buildTimeValue.trim().ifEmpty { DEFAULT_VALUE }
-        if (uname == DEFAULT_VALUE && buildTime == DEFAULT_VALUE) {
+        val uname = unameValue.trim().ifEmpty { defaultSusfsValue }
+        val buildTime = buildTimeValue.trim().ifEmpty { defaultSusfsValue }
+        if (uname == defaultSusfsValue && buildTime == defaultSusfsValue) {
             runCommand("del_uname")
             return
         }
@@ -209,9 +209,7 @@ class SuSFSScreenViewModel : ViewModel() {
     }
 
     private suspend fun loadState(): SuSFSUiState {
-        val statusEnabled = runCatching {
-            getSuSFSStatus().equals("true", ignoreCase = true)
-        }.getOrDefault(false)
+        val statusEnabled = runCatching { getSuSFSStatus() }.getOrDefault(false)
 
         val version = runCatching {
             getSuSFSVersion().trim()
@@ -231,12 +229,10 @@ class SuSFSScreenViewModel : ViewModel() {
             isLoading = false,
             isRefreshing = false,
             commandRunning = false,
-            configPath = SUSFS_CONFIG_PATH,
-            configExists = configJson != null,
             enabled = statusEnabled,
             versionText = version,
-            unameValue = commonObject?.optString("release", DEFAULT_VALUE) ?: DEFAULT_VALUE,
-            buildTimeValue = commonObject?.optString("version", DEFAULT_VALUE) ?: DEFAULT_VALUE,
+            unameValue = commonObject?.optString("release", defaultSusfsValue) ?: defaultSusfsValue,
+            buildTimeValue = commonObject?.optString("version", defaultSusfsValue) ?: defaultSusfsValue,
             avcLogSpoofing = commonObject?.optBoolean("avc_spoofing", false) ?: false,
             susPaths = jsonArrayToSortedList(susPathObject?.optJSONArray("sus_path")),
             susLoopPaths = jsonArrayToSortedList(susPathObject?.optJSONArray("sus_path_loop")),
@@ -251,7 +247,7 @@ class SuSFSScreenViewModel : ViewModel() {
     }
 
     private suspend fun readSusfsConfigJson(): JSONObject? = withContext(Dispatchers.IO) {
-        val suFile = SuFile(SUSFS_CONFIG_PATH).apply {
+        val suFile = SuFile(susfsConfigPath).apply {
             setShell(getRootShell())
         }
         if (!suFile.isFile) {
@@ -303,18 +299,18 @@ class SuSFSScreenViewModel : ViewModel() {
             val item = array.optJSONObject(index) ?: continue
             result += SuSFSStaticKstatEntry(
                 path = item.optString("path", ""),
-                ino = item.optString("ino", DEFAULT_VALUE),
-                dev = item.optString("dev", DEFAULT_VALUE),
-                nlink = item.optString("nlink", DEFAULT_VALUE),
-                size = item.optString("size", DEFAULT_VALUE),
-                atime = item.optString("atime", DEFAULT_VALUE),
-                atimeNsec = item.optString("atime_nsec", DEFAULT_VALUE),
-                mtime = item.optString("mtime", DEFAULT_VALUE),
-                mtimeNsec = item.optString("mtime_nsec", DEFAULT_VALUE),
-                ctime = item.optString("ctime", DEFAULT_VALUE),
-                ctimeNsec = item.optString("ctime_nsec", DEFAULT_VALUE),
-                blocks = item.optString("blocks", DEFAULT_VALUE),
-                blksize = item.optString("blksize", DEFAULT_VALUE),
+                ino = item.optString("ino", defaultSusfsValue),
+                dev = item.optString("dev", defaultSusfsValue),
+                nlink = item.optString("nlink", defaultSusfsValue),
+                size = item.optString("size", defaultSusfsValue),
+                atime = item.optString("atime", defaultSusfsValue),
+                atimeNsec = item.optString("atime_nsec", defaultSusfsValue),
+                mtime = item.optString("mtime", defaultSusfsValue),
+                mtimeNsec = item.optString("mtime_nsec", defaultSusfsValue),
+                ctime = item.optString("ctime", defaultSusfsValue),
+                ctimeNsec = item.optString("ctime_nsec", defaultSusfsValue),
+                blocks = item.optString("blocks", defaultSusfsValue),
+                blksize = item.optString("blksize", defaultSusfsValue),
             )
         }
         return result.sortedBy { it.path }
