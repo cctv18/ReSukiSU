@@ -41,8 +41,8 @@ static apk_sign_key_t apk_sign_keys[] = {
 #ifdef EXPECTED_SIZE
     { EXPECTED_SIZE, EXPECTED_HASH }, // Custom
 #endif
-#ifdef EXPECTED_SIZE2
-    { EXPECTED_SIZE2, EXPECTED_HASH2 }, // Custom 2 (For PR build)
+#ifdef EXPECTED_PR_BUILD_SIZE
+    { EXPECTED_PR_BUILD_SIZE, EXPECTED_PR_BUILD_HASH }, // Custom 2 (For PR build)
 #endif
 #endif
 };
