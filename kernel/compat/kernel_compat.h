@@ -3,9 +3,6 @@
 
 #include <linux/fs.h>
 #include <linux/version.h>
-#ifdef KSU_TP_HOOK
-#include <linux/task_work.h>
-#endif
 #include <linux/fdtable.h>
 #include "ss/policydb.h"
 #include "linux/key.h"
@@ -292,6 +289,10 @@ extern void ksu_run_in_init_if_possible(void (*callback)(void *), void *data);
     defined(KSU_COMPAT_IS_HISI_LEGACY_HM2)
 #define KSU_COMPAT_REQUIRE_SESSION_KEYRING
 extern int ksu_key_permission(key_ref_t key_ref, const struct cred *cred, unsigned perm);
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0) || defined(KSU_HAS_MODERN_STATIC_KEY_INTERFACE)
+#define KSU_COMPAT_USE_STATIC_KEY
 #endif
 
 #endif
