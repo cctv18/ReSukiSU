@@ -978,6 +978,30 @@ object SuSFSManager {
     // 添加SUS路径
     @SuppressLint("StringFormatInvalid")
     suspend fun addSusPath(context: Context, path: String): Boolean {
+        // 如果是1.5.8版本，先设置路径配置
+        if (isSusVersion158()) {
+            // 获取当前配置的路径，如果没有配置则使用默认值
+            val androidDataPath = getAndroidDataPath(context)
+            val sdcardPath = getSdcardPath(context)
+
+            // 先设置Android Data路径
+            val androidDataSuccess = executeSusfsCommand(context, "set_android_data_root_path '$androidDataPath'")
+            if (androidDataSuccess) {
+                showToast(context, context.getString(R.string.susfs_android_data_path_set, androidDataPath))
+            }
+
+            // 再设置SD卡路径
+            val sdcardSuccess = executeSusfsCommand(context, "set_sdcard_root_path '$sdcardPath'")
+            if (sdcardSuccess) {
+                showToast(context, context.getString(R.string.susfs_sdcard_path_set, sdcardPath))
+            }
+
+            // 如果路径设置失败，记录但不阻止继续执行
+            if (!androidDataSuccess || !sdcardSuccess) {
+                showToast(context, context.getString(R.string.susfs_path_setup_warning))
+            }
+        }
+
         // 执行添加SUS路径命令
         val result = executeSusfsCommandWithOutput(context, "add_sus_path '$path'")
         val isActuallySuccessful = result.isSuccess && !result.output.contains("not found, skip adding")
