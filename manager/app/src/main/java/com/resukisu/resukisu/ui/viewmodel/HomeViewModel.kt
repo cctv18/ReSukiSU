@@ -13,7 +13,7 @@ import com.resukisu.resukisu.KernelVersion
 import com.resukisu.resukisu.Natives
 import com.resukisu.resukisu.getKernelVersion
 import com.resukisu.resukisu.ksuApp
-import com.resukisu.resukisu.ui.util.checkNewVersion
+import com.resukisu.resukisu.ui.util.downloader.checkNewVersion
 import com.resukisu.resukisu.ui.util.getKpmModuleCount
 import com.resukisu.resukisu.ui.util.getKpmVersion
 import com.resukisu.resukisu.ui.util.getMetaModuleImplement

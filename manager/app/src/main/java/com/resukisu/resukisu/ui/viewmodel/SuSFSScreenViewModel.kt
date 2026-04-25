@@ -105,7 +105,7 @@ class SuSFSScreenViewModel : ViewModel() {
                 uiState = uiState.copy(
                     isLoading = false,
                     isRefreshing = false,
-                    loadError = it.message ?: ksuApp.getString(R.string.unknown_error),
+                    loadError = it.message ?: ksuApp.getString(R.string.operation_failed),
                 )
             }
         }
