@@ -84,16 +84,19 @@ private enum class AddPathTarget(
     val titleRes: Int,
     val labelRes: Int,
     val placeholderRes: Int,
+    val multiline: Boolean = false,
 ) {
     SusPath(
         R.string.susfs_add_sus_path,
         R.string.susfs_path_label,
-        R.string.susfs_path_placeholder
+        R.string.susfs_path_placeholder,
+        multiline = true
     ),
     SusLoopPath(
         R.string.susfs_add_sus_loop_path,
         R.string.susfs_loop_path_label,
-        R.string.susfs_loop_path_placeholder
+        R.string.susfs_loop_path_placeholder,
+        multiline = true
     ),
     SusMap(
         R.string.susfs_add_sus_map,
@@ -103,7 +106,8 @@ private enum class AddPathTarget(
     KstatPath(
         R.string.add_kstat_path_title,
         R.string.susfs_path_label,
-        R.string.susfs_path_placeholder
+        R.string.susfs_path_placeholder,
+        multiline = true
     ),
     KstatUpdate(
         R.string.update,
@@ -159,13 +163,14 @@ private fun rememberPathEditDialog(
         title = stringResource(target.titleRes),
         label = stringResource(target.labelRes),
         placeholder = stringResource(target.placeholderRes),
+        multiline = target.multiline,
         onDismiss = dismiss,
         onConfirm = { value ->
             when (target) {
-                AddPathTarget.SusPath -> viewModel.addSusPath(value)
-                AddPathTarget.SusLoopPath -> viewModel.addSusLoopPath(value)
+                AddPathTarget.SusPath -> viewModel.addSusPathEntries(value)
+                AddPathTarget.SusLoopPath -> viewModel.addSusLoopPathEntries(value)
                 AddPathTarget.SusMap -> viewModel.addSusMap(value)
-                AddPathTarget.KstatPath -> viewModel.addKstatPath(value)
+                AddPathTarget.KstatPath -> viewModel.addKstatPathEntries(value)
                 AddPathTarget.KstatUpdate -> viewModel.addKstatUpdatePath(value)
                 AddPathTarget.KstatFullClone -> viewModel.addKstatFullClonePath(value)
                 AddPathTarget.KstatStatic -> viewModel.addStaticKstatPath(value)
@@ -192,7 +197,7 @@ private fun SuSFeaturesTab(
             Spacer(modifier = Modifier.height(contentPadding.calculateTopPadding()))
         }
         item {
-            FeatureGroup(features = uiState.featureStatus)
+            FeatureGroup(viewModel = viewModel, features = uiState.featureStatus)
         }
         item {
             Spacer(modifier = Modifier.height(contentPadding.calculateBottomPadding()))
@@ -210,7 +215,29 @@ private fun SuSKstatTab(
     val kstatPathEditDialog = rememberPathEditDialog(AddPathTarget.KstatPath, viewModel)
     val kstatUpdatePathDialog = rememberPathEditDialog(AddPathTarget.KstatUpdate, viewModel)
     val kstatFullClonePathDialog = rememberPathEditDialog(AddPathTarget.KstatFullClone, viewModel)
-    val staticKstatPathEditDialog = rememberPathEditDialog(AddPathTarget.KstatStatic, viewModel)
+    val staticKstatPathEditDialog = rememberCustomDialog { dismiss ->
+        StaticKstatEditDialog(
+            onDismiss = dismiss,
+            onConfirm = { path, ino, dev, nlink, size, atime, atimeNsec, mtime, mtimeNsec, ctime, ctimeNsec, blocks, blksize ->
+                viewModel.addStaticKstatEntry(
+                    path = path,
+                    ino = ino,
+                    dev = dev,
+                    nlink = nlink,
+                    size = size,
+                    atime = atime,
+                    atimeNsec = atimeNsec,
+                    mtime = mtime,
+                    mtimeNsec = mtimeNsec,
+                    ctime = ctime,
+                    ctimeNsec = ctimeNsec,
+                    blocks = blocks,
+                    blksize = blksize,
+                )
+                dismiss()
+            }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -752,7 +779,10 @@ private fun StaticKstatGroup(
 }
 
 @Composable
-private fun FeatureGroup(features: List<SuSFSFeatureStatus>) {
+private fun FeatureGroup(
+    viewModel: SuSFSScreenViewModel,
+    features: List<SuSFSFeatureStatus>,
+) {
     SplicedColumnGroup(
         title = stringResource(R.string.susfs_tab_enabled_features)
     ) {
@@ -769,6 +799,51 @@ private fun FeatureGroup(features: List<SuSFSFeatureStatus>) {
 
         features.forEach { feature ->
             item(key = feature.key) {
+                var showLogConfigDialog by remember(feature.key) { mutableStateOf(false) }
+                var logEnabled by remember(feature.key) { mutableStateOf(viewModel.uiState.susfsLogEnabled) }
+
+                if (showLogConfigDialog && feature.configurable) {
+                    AlertDialog(
+                        onDismissRequest = { showLogConfigDialog = false },
+                        title = { Text(stringResource(R.string.susfs_log_config_title)) },
+                        text = {
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.susfs_log_config_description),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                SettingsSwitchWidget(
+                                    icon = Icons.Filled.Settings,
+                                    title = stringResource(R.string.susfs_enable_log_label),
+                                    checked = logEnabled,
+                                    onCheckedChange = { logEnabled = it }
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    viewModel.setSusfsLogEnabled(logEnabled)
+                                    showLogConfigDialog = false
+                                }
+                            ) {
+                                Text(text = stringResource(R.string.susfs_apply))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = {
+                                    logEnabled = viewModel.uiState.susfsLogEnabled
+                                    showLogConfigDialog = false
+                                }
+                            ) {
+                                Text(text = stringResource(R.string.cancel))
+                            }
+                        }
+                    )
+                }
+
                 SettingsBaseWidget(
                     icon = Icons.Filled.Settings,
                     title = feature.title,
@@ -777,7 +852,22 @@ private fun FeatureGroup(features: List<SuSFSFeatureStatus>) {
                     } else {
                         stringResource(R.string.susfs_feature_disabled)
                     },
-                    enabled = false
+                    enabled = feature.configurable,
+                    onClick = {
+                        if (feature.configurable) {
+                            logEnabled = viewModel.uiState.susfsLogEnabled
+                            showLogConfigDialog = true
+                        }
+                    },
+                    descriptionColumnContent = {
+                        if (feature.configurable) {
+                            Text(
+                                text = stringResource(R.string.susfs_feature_configurable),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 ) {}
             }
         }
@@ -789,6 +879,7 @@ private fun PathEditDialog(
     title: String,
     label: String,
     placeholder: String,
+    multiline: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
@@ -803,7 +894,8 @@ private fun PathEditDialog(
                 onValueChange = { value = it },
                 label = { Text(label) },
                 placeholder = { Text(placeholder) },
-                singleLine = true
+                singleLine = !multiline,
+                minLines = if (multiline) 4 else 1
             )
         },
         confirmButton = {
@@ -867,4 +959,126 @@ private fun UnameDialog(
             }
         }
     )
+}
+
+@Composable
+private fun StaticKstatEditDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (
+        path: String,
+        ino: String,
+        dev: String,
+        nlink: String,
+        size: String,
+        atime: String,
+        atimeNsec: String,
+        mtime: String,
+        mtimeNsec: String,
+        ctime: String,
+        ctimeNsec: String,
+        blocks: String,
+        blksize: String,
+    ) -> Unit,
+) {
+    var path by remember { mutableStateOf("") }
+    var ino by remember { mutableStateOf("") }
+    var dev by remember { mutableStateOf("") }
+    var nlink by remember { mutableStateOf("") }
+    var size by remember { mutableStateOf("") }
+    var atime by remember { mutableStateOf("") }
+    var atimeNsec by remember { mutableStateOf("") }
+    var mtime by remember { mutableStateOf("") }
+    var mtimeNsec by remember { mutableStateOf("") }
+    var ctime by remember { mutableStateOf("") }
+    var ctimeNsec by remember { mutableStateOf("") }
+    var blocks by remember { mutableStateOf("") }
+    var blksize by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_kstat_statically_title)) },
+        text = {
+            LazyColumn {
+                item {
+                    OutlinedTextField(
+                        value = path,
+                        onValueChange = { path = it },
+                        label = { Text(stringResource(R.string.file_or_directory_path_label)) },
+                        placeholder = { Text("/path/to/file_or_directory") },
+                        singleLine = true
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
+                item { KstatPairField("ino", ino, { ino = it }, "dev", dev, { dev = it }) }
+                item { KstatPairField("nlink", nlink, { nlink = it }, "size", size, { size = it }) }
+                item { KstatPairField("atime", atime, { atime = it }, "atime_nsec", atimeNsec, { atimeNsec = it }) }
+                item { KstatPairField("mtime", mtime, { mtime = it }, "mtime_nsec", mtimeNsec, { mtimeNsec = it }) }
+                item { KstatPairField("ctime", ctime, { ctime = it }, "ctime_nsec", ctimeNsec, { ctimeNsec = it }) }
+                item { KstatPairField("blocks", blocks, { blocks = it }, "blksize", blksize, { blksize = it }) }
+                item {
+                    Text(
+                        modifier = Modifier.padding(top = 8.dp),
+                        text = stringResource(R.string.hint_use_default_value),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = path.trim().isNotEmpty(),
+                onClick = {
+                    onConfirm(
+                        path.trim(),
+                        ino,
+                        dev,
+                        nlink,
+                        size,
+                        atime,
+                        atimeNsec,
+                        mtime,
+                        mtimeNsec,
+                        ctime,
+                        ctimeNsec,
+                        blocks,
+                        blksize,
+                    )
+                }
+            ) {
+                Text(text = stringResource(R.string.add))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun KstatPairField(
+    leftLabel: String,
+    leftValue: String,
+    onLeftChange: (String) -> Unit,
+    rightLabel: String,
+    rightValue: String,
+    onRightChange: (String) -> Unit,
+) {
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        OutlinedTextField(
+            value = leftValue,
+            onValueChange = onLeftChange,
+            label = { Text(leftLabel) },
+            singleLine = true
+        )
+        OutlinedTextField(
+            modifier = Modifier.padding(top = 8.dp),
+            value = rightValue,
+            onValueChange = onRightChange,
+            label = { Text(rightLabel) },
+            singleLine = true
+        )
+    }
 }

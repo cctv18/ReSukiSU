@@ -41,6 +41,13 @@ pub enum SuSFSSubCommands {
         #[arg(help = "Path not inside sdcard")]
         path: String,
     },
+    /// Hide/Unhide all sus mounts for non-su processes
+    #[command(name = "hide_sus_mnts_for_non_su_procs")]
+    HideSusMntsForNonSuProcs {
+        /// 0: do not hide sus mounts for non-su processes
+        /// 1: hide sus mounts for non-su processes
+        enabled: u8,
+    },
     /// Add path to store original stat info in kernel memory (before bind mount/overlay)
     #[command(name = "add_sus_kstat")]
     AddSusKstat {
@@ -249,6 +256,9 @@ pub fn run_main(command: SuSFSSubCommands) -> Result<()> {
         SuSFSSubCommands::SetUname { release, version } => {
             config::operation::set_uname(&release, &version);
             api::set_uname(&release, &version)?;
+        }
+        SuSFSSubCommands::HideSusMntsForNonSuProcs { enabled } => {
+            api::hide_sus_mnts_for_non_su_procs(enabled)?;
         }
         SuSFSSubCommands::EnableLog { enabled } => {
             api::enable_log(enabled)?;

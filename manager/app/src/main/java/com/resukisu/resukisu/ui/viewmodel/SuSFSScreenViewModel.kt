@@ -27,6 +27,7 @@ data class SuSFSFeatureStatus(
     val key: String,
     val title: String,
     val enabled: Boolean,
+    val configurable: Boolean = false,
 )
 
 data class SuSFSStaticKstatEntry(
@@ -57,6 +58,7 @@ data class SuSFSUiState(
     val buildTimeValue: String = defaultSusfsValue,
     val hideSuSMntsForNonSUProcs: Boolean = false,
     val hideMountsControlSupported: Boolean = true,
+    val susfsLogEnabled: Boolean = false,
     val avcLogSpoofing: Boolean = false,
     val susPaths: List<String> = emptyList(),
     val susLoopPaths: List<String> = emptyList(),
@@ -150,6 +152,18 @@ class SuSFSScreenViewModel : ViewModel() {
         }
     }
 
+    fun setSusfsLogEnabled(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val success = runCommand("enable_log ${if (enabled) 1 else 0}")
+            if (success) {
+                toastMessage = ksuApp.getString(
+                    if (enabled) R.string.susfs_log_enabled else R.string.susfs_log_disabled
+                )
+                uiState = uiState.copy(susfsLogEnabled = enabled)
+            }
+        }
+    }
+
     fun addSusPath(path: String) = addPath(path, showSuccessToast = true) { "add_sus_path $it" }
     fun removeSusPath(path: String) = removePath(path, showSuccessToast = true) { "del_sus_path $it" }
 
@@ -175,6 +189,46 @@ class SuSFSScreenViewModel : ViewModel() {
             runCommand("add_sus_kstat_statically ${shellQuote(value)}", showSuccessToast = true)
         }
     }
+
+    fun addStaticKstatEntry(
+        path: String,
+        ino: String,
+        dev: String,
+        nlink: String,
+        size: String,
+        atime: String,
+        atimeNsec: String,
+        mtime: String,
+        mtimeNsec: String,
+        ctime: String,
+        ctimeNsec: String,
+        blocks: String,
+        blksize: String,
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val normalizedPath = normalizePathEntry(path) ?: return@launch
+            val args = listOf(
+                shellQuote(normalizedPath),
+                shellQuote(toDefaultIfBlank(ino)),
+                shellQuote(toDefaultIfBlank(dev)),
+                shellQuote(toDefaultIfBlank(nlink)),
+                shellQuote(toDefaultIfBlank(size)),
+                shellQuote(toDefaultIfBlank(atime)),
+                shellQuote(toDefaultIfBlank(atimeNsec)),
+                shellQuote(toDefaultIfBlank(mtime)),
+                shellQuote(toDefaultIfBlank(mtimeNsec)),
+                shellQuote(toDefaultIfBlank(ctime)),
+                shellQuote(toDefaultIfBlank(ctimeNsec)),
+                shellQuote(toDefaultIfBlank(blocks)),
+                shellQuote(toDefaultIfBlank(blksize)),
+            ).joinToString(" ")
+            runCommand("add_sus_kstat_statically $args", showSuccessToast = true)
+        }
+    }
+
+    fun addSusPathEntries(rawInput: String) = addEntries(rawInput, showSuccessToast = true) { "add_sus_path $it" }
+    fun addSusLoopPathEntries(rawInput: String) = addEntries(rawInput, showSuccessToast = true) { "add_sus_path_loop $it" }
+    fun addKstatPathEntries(rawInput: String) = addEntries(rawInput, showSuccessToast = true) { "add_sus_kstat $it" }
 
     fun removeStaticKstat(entry: SuSFSStaticKstatEntry) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -206,9 +260,28 @@ class SuSFSScreenViewModel : ViewModel() {
         commandBuilder: (String) -> String,
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val value = rawPath.trim()
-            if (value.isBlank()) return@launch
+            val value = normalizePathEntry(rawPath) ?: return@launch
             runCommand(commandBuilder(shellQuote(value)), showSuccessToast)
+        }
+    }
+
+    private fun addEntries(
+        rawInput: String,
+        showSuccessToast: Boolean = false,
+        commandBuilder: (String) -> String,
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val entries = parsePathEntries(rawInput)
+            if (entries.isEmpty()) return@launch
+
+            var anySuccess = false
+            for (entry in entries) {
+                val success = runCommand(commandBuilder(shellQuote(entry)), showSuccessToast = false)
+                if (success) anySuccess = true
+            }
+            if (anySuccess && showSuccessToast) {
+                toastMessage = ksuApp.getString(R.string.kpm_control_success)
+            }
         }
     }
 
@@ -218,8 +291,7 @@ class SuSFSScreenViewModel : ViewModel() {
         commandBuilder: (String) -> String,
     ) {
         viewModelScope.launch(Dispatchers.IO) {
-            val value = rawPath.trim()
-            if (value.isBlank()) return@launch
+            val value = normalizePathEntry(rawPath) ?: return@launch
             runCommand(commandBuilder(shellQuote(value)), showSuccessToast)
         }
     }
@@ -274,6 +346,7 @@ class SuSFSScreenViewModel : ViewModel() {
             buildTimeValue = commonObject?.optString("version", defaultSusfsValue) ?: defaultSusfsValue,
             hideSuSMntsForNonSUProcs = false, // TODO native
             hideMountsControlSupported = uiState.hideMountsControlSupported,
+            susfsLogEnabled = uiState.susfsLogEnabled,
             avcLogSpoofing = commonObject?.optBoolean("avc_spoofing", false) ?: false,
             susPaths = jsonArrayToSortedList(susPathObject?.optJSONArray("sus_path")),
             susLoopPaths = jsonArrayToSortedList(susPathObject?.optJSONArray("sus_path_loop")),
@@ -329,6 +402,7 @@ class SuSFSScreenViewModel : ViewModel() {
                 key = key,
                 title = ksuApp.getString(titleRes),
                 enabled = enabledConfig.contains(key),
+                configurable = key == "CONFIG_KSU_SUSFS_ENABLE_LOG",
             )
         }.sortedBy { it.title }
     }
@@ -368,6 +442,51 @@ class SuSFSScreenViewModel : ViewModel() {
             }
         }
         return values.sorted()
+    }
+
+    private fun parsePathEntries(rawInput: String): List<String> {
+        extractJsonLikePathEntries(rawInput).takeIf { it.isNotEmpty() }?.let { return it }
+
+        val seen = linkedSetOf<String>()
+        rawInput.lineSequence()
+            .mapNotNull { normalizePathEntry(it) }
+            .forEach { seen.add(it) }
+        return seen.toList()
+    }
+
+    private fun extractJsonLikePathEntries(rawInput: String): List<String> {
+        val quotedPathRegex = Regex("['\"]([^'\"]+)['\"]")
+        val seen = linkedSetOf<String>()
+        quotedPathRegex.findAll(rawInput).forEach { match ->
+            val candidate = match.groupValues.getOrNull(1)?.trim().orEmpty()
+            val normalized = normalizePathEntry(candidate)
+            if (normalized != null && normalized.startsWith("/")) {
+                seen += normalized
+            }
+        }
+        return seen.toList()
+    }
+
+    private fun normalizePathEntry(raw: String): String? {
+        var value = raw.trim()
+        if (value.isEmpty()) return null
+
+        value = value.removePrefix("[").removeSuffix("]").trim()
+        while (value.endsWith(",")) {
+            value = value.dropLast(1).trimEnd()
+        }
+        value = value.trim().trim('"', '\'').trim()
+        if (value.isEmpty()) return null
+
+        while (value.endsWith(",")) {
+            value = value.dropLast(1).trimEnd()
+        }
+
+        return value.takeIf { it.isNotEmpty() }
+    }
+
+    private fun toDefaultIfBlank(value: String): String {
+        return value.trim().ifBlank { defaultSusfsValue }
     }
 
     private fun shellQuote(text: String): String {
