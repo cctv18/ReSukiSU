@@ -251,7 +251,7 @@ pub fn run_main(command: SuSFSSubCommands) -> Result<()> {
         }
         SuSFSSubCommands::UpdateSusKstatFullClone { path } => {
             config::operation::add_sus_kstat_full_clone(&path);
-            api::update_sus_kstat_full_clone(path)?;
+            api::update_sus_kstat_full_clone(&path)?;
         }
         SuSFSSubCommands::SetUname { release, version } => {
             config::operation::set_uname(&release, &version);
