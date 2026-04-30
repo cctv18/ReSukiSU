@@ -30,6 +30,7 @@
 #include "feature/dynamic_manager.h"
 #include "feature/sucompat.h"
 #include "hook/setuid_hook.h"
+#include "compat/kernel_compat.h"
 
 #ifdef CONFIG_ARM64
 #include "compat/apatch_conflict.h"
@@ -95,7 +96,7 @@ static inline void ksu_hook_init(void)
     ksu_syscall_hook_manager_init();
 #elif defined(CONFIG_KSU_MANUAL_HOOK)
 // only lsm hook need call init
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0) && LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
     ksu_lsm_hook_init();
 #endif
 #elif defined(CONFIG_KSU_SUSFS)
@@ -115,6 +116,14 @@ static inline void ksu_hook_exit(void)
 #else
     ksu_sucompat_exit();
     ksu_setuid_hook_exit();
+#endif
+}
+
+void setup_ksu_cred(void)
+{
+    setup_ksu_cred_selinux();
+#ifdef KSU_COMPAT_REQUIRE_SESSION_KEYRING
+    setup_ksu_cred_session_keyring();
 #endif
 }
 

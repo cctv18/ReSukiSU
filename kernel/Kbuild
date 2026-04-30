@@ -185,17 +185,14 @@ ifndef CONFIG_KSU_TRACEPOINT_HOOK
   # For old kernel, pkg observer maybe let system freeze
   # https://github.com/ReSukiSU/ReSukiSU/issues/82#issuecomment-4015396974
   #
-  # 4.2- we let user manual hook security.c to call ksu_handle_rename
-  # 4.2-6.7 we use lsm_hooks to call ksu_handle_rename
+  # 6.7- we use lsm_hooks to call ksu_handle_rename
   # 6.8+ we use pkg_observer to track_throne
-  ifeq ($(shell test \( $(VERSION) -gt 4 -o \( $(VERSION) -eq 4 -a $(PATCHLEVEL) -ge 2 \) \) && echo y),y)
-      ifeq ($(shell test \( $(VERSION) -lt 6 -o \( $(VERSION) -eq 6 -a $(PATCHLEVEL) -lt 8 \) \) && echo y),y)
-          kernelsu-objs += hook/lsm_hooks.o
-      else
-        ifndef CONFIG_KSU_DISABLE_MANAGER
-          kernelsu-objs += manager/pkg_observer.o
-        endif
-      endif
+  ifeq ($(shell test \( $(VERSION) -lt 6 -o \( $(VERSION) -eq 6 -a $(PATCHLEVEL) -lt 8 \) \) && echo y),y)
+      kernelsu-objs += hook/lsm_hooks.o
+  else
+    ifndef CONFIG_KSU_DISABLE_MANAGER
+      kernelsu-objs += manager/pkg_observer.o
+    endif
   endif
 endif
 
@@ -210,6 +207,16 @@ endif
 ifdef KSU_EXPECTED_HASH
 ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
 $(info -- Custom KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
+endif
+
+ifdef KSU_EXPECTED_PR_BUILD_SIZE
+  ifndef KSU_EXPECTED_PR_BUILD_HASH
+    $(error KSU_EXPECTED_PR_BUILD_HASH must be set when KSU_EXPECTED_PR_BUILD_SIZE is set)
+  endif
+  ccflags-y += -DEXPECTED_PR_BUILD_SIZE=$(KSU_EXPECTED_PR_BUILD_SIZE)
+  ccflags-y += -DEXPECTED_PR_BUILD_HASH=\"$(KSU_EXPECTED_PR_BUILD_HASH)\"
+  $(info -- KernelSU Manager Pull Request signature size: $(KSU_EXPECTED_PR_BUILD_SIZE))
+  $(info -- KernelSU Manager Pull Request signature hash: $(KSU_EXPECTED_PR_BUILD_HASH))
 endif
 
 ifdef KSU_MANAGER_PACKAGE
