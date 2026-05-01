@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.pager.HorizontalPager
@@ -807,18 +808,26 @@ private fun FeatureGroup(
                         onDismissRequest = { showLogConfigDialog = false },
                         title = { Text(stringResource(R.string.susfs_log_config_title)) },
                         text = {
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.susfs_log_config_description),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                SettingsSwitchWidget(
-                                    icon = Icons.Filled.Settings,
-                                    title = stringResource(R.string.susfs_enable_log_label),
-                                    checked = logEnabled,
-                                    onCheckedChange = { logEnabled = it }
-                                )
+                            LazyColumn(
+                                modifier = Modifier
+                                    .heightIn(max = 325.dp)
+                            ) {
+                                item {
+                                    Text(
+                                        text = stringResource(R.string.susfs_log_config_description),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                item {
+                                    SettingsSwitchWidget(
+                                        icon = Icons.Filled.Settings,
+                                        title = stringResource(R.string.susfs_enable_log_label),
+                                        checked = logEnabled,
+                                        onCheckedChange = { logEnabled = it }
+                                    )
+                                }
                             }
                         },
                         confirmButton = {
@@ -889,14 +898,21 @@ private fun PathEditDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            OutlinedTextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text(label) },
-                placeholder = { Text(placeholder) },
-                singleLine = !multiline,
-                minLines = if (multiline) 4 else 1
-            )
+            LazyColumn(
+                modifier = Modifier
+                    .heightIn(max = 325.dp)
+            ) {
+                item {
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { value = it },
+                        label = { Text(label) },
+                        placeholder = { Text(placeholder) },
+                        singleLine = !multiline,
+                        minLines = if (multiline) 4 else 1
+                    )
+                }
+            }
         },
         confirmButton = {
             TextButton(
@@ -928,22 +944,30 @@ private fun UnameDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.susfs_config_title)) },
         text = {
-            Column {
-                OutlinedTextField(
-                    value = unameValue,
-                    onValueChange = { unameValue = it },
-                    label = { Text(stringResource(R.string.susfs_uname_label)) },
-                    placeholder = { Text(stringResource(R.string.susfs_uname_placeholder)) },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    modifier = Modifier.padding(top = 8.dp),
-                    value = buildTimeValue,
-                    onValueChange = { buildTimeValue = it },
-                    label = { Text(stringResource(R.string.susfs_build_time_label)) },
-                    placeholder = { Text(stringResource(R.string.susfs_build_time_placeholder)) },
-                    singleLine = true
-                )
+            LazyColumn(
+                modifier = Modifier
+                    .heightIn(max = 325.dp)
+            ) {
+                item {
+                    OutlinedTextField(
+                        value = unameValue,
+                        onValueChange = { unameValue = it },
+                        label = { Text(stringResource(R.string.susfs_uname_label)) },
+                        placeholder = { Text(stringResource(R.string.susfs_uname_placeholder)) },
+                        singleLine = true
+                    )
+                }
+
+                item {
+                    OutlinedTextField(
+                        modifier = Modifier.padding(top = 8.dp),
+                        value = buildTimeValue,
+                        onValueChange = { buildTimeValue = it },
+                        label = { Text(stringResource(R.string.susfs_build_time_label)) },
+                        placeholder = { Text(stringResource(R.string.susfs_build_time_placeholder)) },
+                        singleLine = true
+                    )
+                }
             }
         },
         confirmButton = {
@@ -998,7 +1022,10 @@ private fun StaticKstatEditDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.add_kstat_statically_title)) },
         text = {
-            LazyColumn {
+            LazyColumn(
+                modifier = Modifier
+                    .heightIn(max = 325.dp)
+            ) {
                 item {
                     OutlinedTextField(
                         value = path,
