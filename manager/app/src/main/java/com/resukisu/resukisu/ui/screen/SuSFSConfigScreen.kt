@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
@@ -544,7 +543,7 @@ private fun SuSPathTab(
                             icon = Icons.Filled.Add,
                             title = stringResource(R.string.add_custom_path),
                             description = null,
-                            onClick = pathEditDialog::show
+                            onClick = { pathEditDialog.show() }
                         ) {}
                     }
                 }
@@ -590,7 +589,7 @@ private fun SuSPathTab(
             icon = Icons.Filled.Delete,
             title = stringResource(R.string.susfs_reset_paths_title),
             description = null,
-            onClick = viewModel::resetAllSusPaths
+            onClick = { viewModel.resetAllSusPaths() }
         ) {}
     }
 }
