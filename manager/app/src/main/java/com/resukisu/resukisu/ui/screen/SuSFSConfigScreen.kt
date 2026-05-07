@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
-import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -255,28 +254,51 @@ private fun SuSKstatTab(
     nestedScrollConnection: NestedScrollConnection,
 ) {
     val uiState = viewModel.uiState
+    var editingStaticKstatEntry by remember { mutableStateOf<SuSFSStaticKstatEntry?>(null) }
     val kstatPathEditDialog = rememberPathEditDialog(AddPathTarget.KstatPath, viewModel)
     val kstatUpdatePathDialog = rememberPathEditDialog(AddPathTarget.KstatUpdate, viewModel)
     val kstatFullClonePathDialog = rememberPathEditDialog(AddPathTarget.KstatFullClone, viewModel)
     val staticKstatPathEditDialog = rememberCustomDialog { dismiss ->
         StaticKstatEditDialog(
+            initialEntry = editingStaticKstatEntry,
             onDismiss = dismiss,
             onConfirm = { path, ino, dev, nlink, size, atime, atimeNsec, mtime, mtimeNsec, ctime, ctimeNsec, blocks, blksize ->
-                viewModel.addStaticKstatEntry(
-                    path = path,
-                    ino = ino,
-                    dev = dev,
-                    nlink = nlink,
-                    size = size,
-                    atime = atime,
-                    atimeNsec = atimeNsec,
-                    mtime = mtime,
-                    mtimeNsec = mtimeNsec,
-                    ctime = ctime,
-                    ctimeNsec = ctimeNsec,
-                    blocks = blocks,
-                    blksize = blksize,
-                )
+                val editingEntry = editingStaticKstatEntry
+                if (editingEntry == null) {
+                    viewModel.addStaticKstatEntry(
+                        path = path,
+                        ino = ino,
+                        dev = dev,
+                        nlink = nlink,
+                        size = size,
+                        atime = atime,
+                        atimeNsec = atimeNsec,
+                        mtime = mtime,
+                        mtimeNsec = mtimeNsec,
+                        ctime = ctime,
+                        ctimeNsec = ctimeNsec,
+                        blocks = blocks,
+                        blksize = blksize,
+                    )
+                } else {
+                    viewModel.editStaticKstatEntry(
+                        oldEntry = editingEntry,
+                        path = path,
+                        ino = ino,
+                        dev = dev,
+                        nlink = nlink,
+                        size = size,
+                        atime = atime,
+                        atimeNsec = atimeNsec,
+                        mtime = mtime,
+                        mtimeNsec = mtimeNsec,
+                        ctime = ctime,
+                        ctimeNsec = ctimeNsec,
+                        blocks = blocks,
+                        blksize = blksize,
+                    )
+                }
+                editingStaticKstatEntry = null
                 dismiss()
             }
         )
@@ -343,7 +365,14 @@ private fun SuSKstatTab(
             StaticKstatGroup(
                 title = stringResource(R.string.static_kstat_config),
                 entries = uiState.staticKstatEntries,
-                onAddClick = staticKstatPathEditDialog::show,
+                onAddClick = {
+                    editingStaticKstatEntry = null
+                    staticKstatPathEditDialog.show()
+                },
+                onEdit = { entry ->
+                    editingStaticKstatEntry = entry
+                    staticKstatPathEditDialog.show()
+                },
                 onDelete = viewModel::removeStaticKstat,
             )
         }
@@ -606,7 +635,6 @@ private fun BasicTab(
     val scope = rememberCoroutineScope()
     val uiState = viewModel.uiState
     var showSlotDialog by remember { mutableStateOf(false) }
-    var showExecutionLocationDialog by remember { mutableStateOf(false) }
     var showRestoreConfirm by remember { mutableStateOf(false) }
     var backupFileToRestore by remember { mutableStateOf<String?>(null) }
 
@@ -657,56 +685,6 @@ private fun BasicTab(
                 }
             }
         }
-    }
-
-    if (showExecutionLocationDialog) {
-        AlertDialog(
-            onDismissRequest = { showExecutionLocationDialog = false },
-            title = { Text(stringResource(R.string.susfs_execution_location_label)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SettingsBaseWidget(
-                        icon = Icons.Filled.Settings,
-                        title = stringResource(R.string.susfs_execution_location_service),
-                        description = stringResource(R.string.susfs_execution_location_service_description),
-                        onClick = {
-                            viewModel.setExecuteInPostFsData(false)
-                            showExecutionLocationDialog = false
-                        }
-                    ) {
-                        if (!uiState.executeInPostFsData) {
-                            Icon(
-                                imageVector = Icons.Filled.Edit,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                    SettingsBaseWidget(
-                        icon = Icons.Filled.AutoMode,
-                        title = stringResource(R.string.susfs_execution_location_post_fs_data),
-                        description = stringResource(R.string.susfs_execution_location_post_fs_data_description),
-                        onClick = {
-                            viewModel.setExecuteInPostFsData(true)
-                            showExecutionLocationDialog = false
-                        }
-                    ) {
-                        if (uiState.executeInPostFsData) {
-                            Icon(
-                                imageVector = Icons.Filled.Edit,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showExecutionLocationDialog = false }) {
-                    Text(stringResource(R.string.close))
-                }
-            }
-        )
     }
 
     if (showSlotDialog) {
@@ -876,27 +854,6 @@ private fun BasicTab(
                             title = stringResource(R.string.susfs_build_time_label),
                             description = uiState.buildTimeValue,
                         ) {}
-                    }
-                    item {
-                        SettingsBaseWidget(
-                            icon = Icons.Filled.AutoMode,
-                            title = stringResource(R.string.susfs_execution_location_label),
-                            description = if (uiState.executeInPostFsData) {
-                                stringResource(R.string.susfs_execution_location_post_fs_data)
-                            } else {
-                                stringResource(R.string.susfs_execution_location_service)
-                            },
-                            onClick = { showExecutionLocationDialog = true }
-                        ) {}
-                    }
-                    item {
-                        SettingsSwitchWidget(
-                            icon = Icons.Filled.Security,
-                            title = stringResource(R.string.hide_bl_script),
-                            description = stringResource(R.string.hide_bl_script_description),
-                            checked = uiState.hideBlEnabled,
-                            onCheckedChange = viewModel::setHideBlEnabled
-                        )
                     }
                 }
             }
@@ -1222,6 +1179,7 @@ private fun StaticKstatGroup(
     title: String,
     entries: List<SuSFSStaticKstatEntry>,
     onAddClick: () -> Unit,
+    onEdit: (SuSFSStaticKstatEntry) -> Unit,
     onDelete: (SuSFSStaticKstatEntry) -> Unit,
 ) {
     SplicedColumnGroup(
@@ -1253,6 +1211,7 @@ private fun StaticKstatGroup(
                     icon = Icons.Filled.Folder,
                     title = entry.path,
                     description = entry.summary,
+                    onClick = { onEdit(entry) }
                 ) {
                     IconButton(
                         onClick = { onDelete(entry) }
@@ -1477,6 +1436,7 @@ private fun UnameDialog(
 
 @Composable
 private fun StaticKstatEditDialog(
+    initialEntry: SuSFSStaticKstatEntry? = null,
     onDismiss: () -> Unit,
     onConfirm: (
         path: String,
@@ -1494,23 +1454,31 @@ private fun StaticKstatEditDialog(
         blksize: String,
     ) -> Unit,
 ) {
-    var path by remember { mutableStateOf("") }
-    var ino by remember { mutableStateOf("") }
-    var dev by remember { mutableStateOf("") }
-    var nlink by remember { mutableStateOf("") }
-    var size by remember { mutableStateOf("") }
-    var atime by remember { mutableStateOf("") }
-    var atimeNsec by remember { mutableStateOf("") }
-    var mtime by remember { mutableStateOf("") }
-    var mtimeNsec by remember { mutableStateOf("") }
-    var ctime by remember { mutableStateOf("") }
-    var ctimeNsec by remember { mutableStateOf("") }
-    var blocks by remember { mutableStateOf("") }
-    var blksize by remember { mutableStateOf("") }
+    var path by remember(initialEntry) { mutableStateOf(initialEntry?.path ?: "") }
+    var ino by remember(initialEntry) { mutableStateOf(initialEntry?.ino ?: "") }
+    var dev by remember(initialEntry) { mutableStateOf(initialEntry?.dev ?: "") }
+    var nlink by remember(initialEntry) { mutableStateOf(initialEntry?.nlink ?: "") }
+    var size by remember(initialEntry) { mutableStateOf(initialEntry?.size ?: "") }
+    var atime by remember(initialEntry) { mutableStateOf(initialEntry?.atime ?: "") }
+    var atimeNsec by remember(initialEntry) { mutableStateOf(initialEntry?.atimeNsec ?: "") }
+    var mtime by remember(initialEntry) { mutableStateOf(initialEntry?.mtime ?: "") }
+    var mtimeNsec by remember(initialEntry) { mutableStateOf(initialEntry?.mtimeNsec ?: "") }
+    var ctime by remember(initialEntry) { mutableStateOf(initialEntry?.ctime ?: "") }
+    var ctimeNsec by remember(initialEntry) { mutableStateOf(initialEntry?.ctimeNsec ?: "") }
+    var blocks by remember(initialEntry) { mutableStateOf(initialEntry?.blocks ?: "") }
+    var blksize by remember(initialEntry) { mutableStateOf(initialEntry?.blksize ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_kstat_statically_title)) },
+        title = {
+            Text(
+                if (initialEntry == null) {
+                    stringResource(R.string.add_kstat_statically_title)
+                } else {
+                    stringResource(R.string.edit_kstat_statically_title)
+                }
+            )
+        },
         text = {
             LazyColumn(
                 modifier = Modifier
@@ -1563,7 +1531,13 @@ private fun StaticKstatEditDialog(
                     )
                 }
             ) {
-                Text(text = stringResource(R.string.add))
+                Text(
+                    text = if (initialEntry == null) {
+                        stringResource(R.string.add)
+                    } else {
+                        stringResource(R.string.susfs_apply)
+                    }
+                )
             }
         },
         dismissButton = {

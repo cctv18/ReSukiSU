@@ -262,6 +262,7 @@ pub fn run_main(command: SuSFSSubCommands) -> Result<()> {
         }
         SuSFSSubCommands::EnableLog { enabled } => {
             api::enable_log(enabled)?;
+            config::operation::enable_susfs_log(enabled);
         }
         SuSFSSubCommands::SetCmdlineOrBootconfig { path } => {
             api::set_cmdline_or_bootconfig(path)?;

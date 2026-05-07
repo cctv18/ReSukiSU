@@ -15,6 +15,8 @@ pub struct Common {
     pub version: String,
     pub release: String,
     pub avc_spoofing: bool,
+    #[serde(default)]
+    pub enable_susfs_log: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -56,6 +58,7 @@ impl Default for Data {
                 version: "default".to_string(),
                 release: "default".to_string(),
                 avc_spoofing: false,
+                enable_susfs_log: false,
             },
             sus_path: SusPath {
                 sus_path_loop: HashSet::new(),

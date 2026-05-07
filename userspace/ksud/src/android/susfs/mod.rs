@@ -31,6 +31,7 @@ pub fn on_post_fs_data() -> Result<()> {
 
     api::set_uname(&config.common.release, &config.common.version)?;
     api::enable_avc_log_spoofing(config.common.avc_spoofing.into())?;
+    api::enable_log(config.common.enable_susfs_log.into())?;
     for sus_kstat in config.kstat.sus_kstat {
         api::add_sus_kstat(&sus_kstat)?;
     }

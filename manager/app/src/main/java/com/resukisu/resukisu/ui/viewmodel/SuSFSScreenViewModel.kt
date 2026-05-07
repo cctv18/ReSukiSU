@@ -1,13 +1,11 @@
 package com.resukisu.resukisu.ui.viewmodel
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.resukisu.resukisu.R
@@ -28,10 +26,6 @@ import org.json.JSONObject
 
 private inline val defaultSusfsValue: String
     get() = "default"
-
-private const val SUSFS_PREFS = "susfs_config"
-private const val KEY_EXECUTE_IN_POST_FS_DATA = "execute_in_post_fs_data"
-private const val KEY_ENABLE_HIDE_BL = "enable_hide_bl"
 
 private const val SUSFS_CONFIG_PATH = "/data/adb/ksu/.susfs.json"
 private const val CGROUP_BASE_PATH = "/sys/fs/cgroup"
@@ -81,8 +75,6 @@ data class SuSFSUiState(
     val versionText: String = "",
     val unameValue: String = defaultSusfsValue,
     val buildTimeValue: String = defaultSusfsValue,
-    val executeInPostFsData: Boolean = false,
-    val hideBlEnabled: Boolean = true,
     val hideSuSMntsForNonSUProcs: Boolean = false,
     val hideMountsControlSupported: Boolean = true,
     val susfsLogEnabled: Boolean = false,
@@ -116,10 +108,6 @@ class SuSFSScreenViewModel : ViewModel() {
 
     init {
         refresh()
-    }
-
-    private fun prefs(): SharedPreferences {
-        return ksuApp.getSharedPreferences(SUSFS_PREFS, Context.MODE_PRIVATE)
     }
 
     fun consumeToastMessage() {
@@ -160,21 +148,14 @@ class SuSFSScreenViewModel : ViewModel() {
             val uname = unameValue.trim().ifEmpty { defaultSusfsValue }
             val buildTime = buildTimeValue.trim().ifEmpty { defaultSusfsValue }
             if (uname == defaultSusfsValue && buildTime == defaultSusfsValue) {
-                runCommand("del_uname")
+                val success = runCommand("del_uname")
+                if (success) {
+                    postRebootToast()
+                }
                 return@launch
             }
             runCommand("set_uname ${shellQuote(uname)} ${shellQuote(buildTime)}")
         }
-    }
-
-    fun setExecuteInPostFsData(enabled: Boolean) {
-        prefs().edit { putBoolean(KEY_EXECUTE_IN_POST_FS_DATA, enabled) }
-        uiState = uiState.copy(executeInPostFsData = enabled)
-    }
-
-    fun setHideBlEnabled(enabled: Boolean) {
-        prefs().edit { putBoolean(KEY_ENABLE_HIDE_BL, enabled) }
-        uiState = uiState.copy(hideBlEnabled = enabled)
     }
 
     fun useSlotUname(uname: String) {
@@ -222,6 +203,7 @@ class SuSFSScreenViewModel : ViewModel() {
                     if (enabled) R.string.susfs_log_enabled else R.string.susfs_log_disabled
                 )
                 uiState = uiState.copy(susfsLogEnabled = enabled)
+                postToast(ksuApp.getString(R.string.reboot_to_apply))
             }
         }
     }
@@ -235,7 +217,7 @@ class SuSFSScreenViewModel : ViewModel() {
                 }
             }
             if (anySuccess) {
-                toastMessage = ksuApp.getString(R.string.kpm_control_success)
+                postRebootToast()
                 refresh()
             }
         }
@@ -277,8 +259,6 @@ class SuSFSScreenViewModel : ViewModel() {
                 put("timestamp", System.currentTimeMillis())
                 put("deviceInfo", "${Build.MANUFACTURER} ${Build.MODEL} (${Build.VERSION.RELEASE})")
                 put("configurations", config)
-                put("executeInPostFsData", prefs().getBoolean(KEY_EXECUTE_IN_POST_FS_DATA, false))
-                put("hideBlEnabled", prefs().getBoolean(KEY_ENABLE_HIDE_BL, true))
             }
 
             val writeResult = runCatching {
@@ -314,15 +294,6 @@ class SuSFSScreenViewModel : ViewModel() {
             if (!writeSuccess) {
                 onFinish(false, ksuApp.getString(R.string.operation_failed))
                 return@launch
-            }
-
-            prefs().edit {
-                if (result.has("executeInPostFsData")) {
-                    putBoolean(KEY_EXECUTE_IN_POST_FS_DATA, result.optBoolean("executeInPostFsData", false))
-                }
-                if (result.has("hideBlEnabled")) {
-                    putBoolean(KEY_ENABLE_HIDE_BL, result.optBoolean("hideBlEnabled", true))
-                }
             }
 
             refresh()
@@ -432,31 +403,90 @@ class SuSFSScreenViewModel : ViewModel() {
         }
     }
 
+    fun editStaticKstatEntry(
+        oldEntry: SuSFSStaticKstatEntry,
+        path: String,
+        ino: String,
+        dev: String,
+        nlink: String,
+        size: String,
+        atime: String,
+        atimeNsec: String,
+        mtime: String,
+        mtimeNsec: String,
+        ctime: String,
+        ctimeNsec: String,
+        blocks: String,
+        blksize: String,
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val normalizedPath = normalizePathEntry(path) ?: return@launch
+            val oldDeleteCommand = buildStaticKstatCommandArgs(
+                oldEntry.path,
+                oldEntry.ino,
+                oldEntry.dev,
+                oldEntry.nlink,
+                oldEntry.size,
+                oldEntry.atime,
+                oldEntry.atimeNsec,
+                oldEntry.mtime,
+                oldEntry.mtimeNsec,
+                oldEntry.ctime,
+                oldEntry.ctimeNsec,
+                oldEntry.blocks,
+                oldEntry.blksize,
+            )
+            val deletedOld = runCommand("del_sus_kstat_statically $oldDeleteCommand", showSuccessToast = false)
+            if (!deletedOld) return@launch
+
+            val newAddCommand = buildStaticKstatCommandArgs(
+                normalizedPath,
+                ino,
+                dev,
+                nlink,
+                size,
+                atime,
+                atimeNsec,
+                mtime,
+                mtimeNsec,
+                ctime,
+                ctimeNsec,
+                blocks,
+                blksize,
+            )
+            val addedNew = runCommand("add_sus_kstat_statically $newAddCommand", showSuccessToast = false)
+            if (addedNew) {
+                toastMessage = ksuApp.getString(R.string.kpm_control_success)
+                postRebootToast()
+            }
+        }
+    }
+
     fun addSusPathEntries(rawInput: String) = addEntries(rawInput, showSuccessToast = true) { "add_sus_path $it" }
     fun addSusLoopPathEntries(rawInput: String) = addEntries(rawInput, showSuccessToast = true) { "add_sus_path_loop $it" }
     fun addKstatPathEntries(rawInput: String) = addEntries(rawInput, showSuccessToast = true) { "add_sus_kstat $it" }
 
     fun removeStaticKstat(entry: SuSFSStaticKstatEntry) {
         viewModelScope.launch(Dispatchers.IO) {
-            runCommand(
-                listOf(
-                    "del_sus_kstat_statically",
-                    shellQuote(entry.path),
-                    shellQuote(entry.ino),
-                    shellQuote(entry.dev),
-                    shellQuote(entry.nlink),
-                    shellQuote(entry.size),
-                    shellQuote(entry.atime),
-                    shellQuote(entry.atimeNsec),
-                    shellQuote(entry.mtime),
-                    shellQuote(entry.mtimeNsec),
-                    shellQuote(entry.ctime),
-                    shellQuote(entry.ctimeNsec),
-                    shellQuote(entry.blocks),
-                    shellQuote(entry.blksize),
-                ).joinToString(" "),
-                showSuccessToast = true,
+            val deleteArgs = buildStaticKstatCommandArgs(
+                entry.path,
+                entry.ino,
+                entry.dev,
+                entry.nlink,
+                entry.size,
+                entry.atime,
+                entry.atimeNsec,
+                entry.mtime,
+                entry.mtimeNsec,
+                entry.ctime,
+                entry.ctimeNsec,
+                entry.blocks,
+                entry.blksize,
             )
+            val success = runCommand("del_sus_kstat_statically $deleteArgs", showSuccessToast = true)
+            if (success) {
+                postRebootToast()
+            }
         }
     }
 
@@ -498,8 +528,15 @@ class SuSFSScreenViewModel : ViewModel() {
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             val value = normalizePathEntry(rawPath) ?: return@launch
-            runCommand(commandBuilder(shellQuote(value)), showSuccessToast)
+            val success = runCommand(commandBuilder(shellQuote(value)), showSuccessToast)
+            if (success) {
+                postRebootToast()
+            }
         }
+    }
+
+    private fun postRebootToast() {
+        postToast(ksuApp.getString(R.string.reboot_to_apply))
     }
 
     private suspend fun runCommand(command: String, showSuccessToast: Boolean = false): Boolean =
@@ -550,11 +587,9 @@ class SuSFSScreenViewModel : ViewModel() {
             versionText = version,
             unameValue = commonObject?.optString("release", defaultSusfsValue) ?: defaultSusfsValue,
             buildTimeValue = commonObject?.optString("version", defaultSusfsValue) ?: defaultSusfsValue,
-            executeInPostFsData = prefs().getBoolean(KEY_EXECUTE_IN_POST_FS_DATA, false),
-            hideBlEnabled = prefs().getBoolean(KEY_ENABLE_HIDE_BL, true),
             hideSuSMntsForNonSUProcs = false, // TODO native
             hideMountsControlSupported = uiState.hideMountsControlSupported,
-            susfsLogEnabled = uiState.susfsLogEnabled,
+            susfsLogEnabled = commonObject?.optBoolean("enable_susfs_log", false) ?: false,
             avcLogSpoofing = commonObject?.optBoolean("avc_spoofing", false) ?: false,
             susPaths = jsonArrayToSortedList(susPathObject?.optJSONArray("sus_path")),
             susLoopPaths = jsonArrayToSortedList(susPathObject?.optJSONArray("sus_path_loop")),
@@ -763,6 +798,38 @@ class SuSFSScreenViewModel : ViewModel() {
 
     private fun toDefaultIfBlank(value: String): String {
         return value.trim().ifBlank { defaultSusfsValue }
+    }
+
+    private fun buildStaticKstatCommandArgs(
+        path: String,
+        ino: String,
+        dev: String,
+        nlink: String,
+        size: String,
+        atime: String,
+        atimeNsec: String,
+        mtime: String,
+        mtimeNsec: String,
+        ctime: String,
+        ctimeNsec: String,
+        blocks: String,
+        blksize: String,
+    ): String {
+        return listOf(
+            shellQuote(path),
+            shellQuote(toDefaultIfBlank(ino)),
+            shellQuote(toDefaultIfBlank(dev)),
+            shellQuote(toDefaultIfBlank(nlink)),
+            shellQuote(toDefaultIfBlank(size)),
+            shellQuote(toDefaultIfBlank(atime)),
+            shellQuote(toDefaultIfBlank(atimeNsec)),
+            shellQuote(toDefaultIfBlank(mtime)),
+            shellQuote(toDefaultIfBlank(mtimeNsec)),
+            shellQuote(toDefaultIfBlank(ctime)),
+            shellQuote(toDefaultIfBlank(ctimeNsec)),
+            shellQuote(toDefaultIfBlank(blocks)),
+            shellQuote(toDefaultIfBlank(blksize)),
+        ).joinToString(" ")
     }
 
     private fun shellQuote(text: String): String {
