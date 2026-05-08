@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -67,6 +68,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -74,6 +76,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
+import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ui.component.DialogHandle
@@ -573,7 +576,7 @@ private fun SuSPathTab(
                     item {
                         SettingsBaseWidget(
                             icon = Icons.Filled.Add,
-                            title = stringResource(R.string.add_custom_path),
+                            title = stringResource(R.string.susfs_add_sus_path),
                             description = null,
                             onClick = { pathEditDialog.show() }
                         ) {}
@@ -612,6 +615,7 @@ private fun SuSPathTab(
                     emptyText = stringResource(R.string.susfs_no_paths_configured),
                     paths = otherPaths,
                     onAddClick = pathEditDialog::show,
+                    showAddEntry = false,
                     onDelete = viewModel::removeSusPath,
                 )
             }
@@ -736,12 +740,27 @@ private fun BasicTab(
     }
 
     val unameDialog = rememberCustomDialog { dismiss ->
-        UnameDialog(
-            initialUname = uiState.unameValue,
-            initialBuildTime = uiState.buildTimeValue,
+        SingleValueDialog(
+            title = stringResource(R.string.susfs_uname_label),
+            label = stringResource(R.string.susfs_uname_label),
+            placeholder = stringResource(R.string.susfs_uname_placeholder),
+            initialValue = uiState.unameValue,
             onDismiss = dismiss,
-            onConfirm = { uname, buildTime ->
-                viewModel.setUnameAndBuildTime(uname, buildTime)
+            onConfirm = { uname ->
+                viewModel.setUnameAndBuildTime(uname, uiState.buildTimeValue)
+                dismiss()
+            }
+        )
+    }
+    val buildTimeDialog = rememberCustomDialog { dismiss ->
+        SingleValueDialog(
+            title = stringResource(R.string.susfs_build_time_label),
+            label = stringResource(R.string.susfs_build_time_label),
+            placeholder = stringResource(R.string.susfs_build_time_placeholder),
+            initialValue = uiState.buildTimeValue,
+            onDismiss = dismiss,
+            onConfirm = { buildTime ->
+                viewModel.setUnameAndBuildTime(uiState.unameValue, buildTime)
                 dismiss()
             }
         )
@@ -842,6 +861,7 @@ private fun BasicTab(
                             icon = Icons.Filled.Edit,
                             title = stringResource(R.string.susfs_uname_label),
                             description = uiState.unameValue,
+                            onClick = unameDialog::show,
                         ) {
                             IconButton(onClick = unameDialog::show) {
                                 Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
@@ -853,7 +873,12 @@ private fun BasicTab(
                             icon = Icons.Filled.Edit,
                             title = stringResource(R.string.susfs_build_time_label),
                             description = uiState.buildTimeValue,
-                        ) {}
+                            onClick = buildTimeDialog::show,
+                        ) {
+                            IconButton(onClick = buildTimeDialog::show) {
+                                Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
+                            }
+                        }
                     }
                 }
             }
@@ -1127,18 +1152,21 @@ private fun PathGroup(
     emptyText: String,
     paths: List<String>,
     onAddClick: () -> Unit,
+    showAddEntry: Boolean = true,
     onDelete: (String) -> Unit,
 ) {
     SplicedColumnGroup(
         title = title
     ) {
-        item {
-            SettingsBaseWidget(
-                icon = Icons.Filled.Add,
-                title = addTitle,
-                description = null,
-                onClick = { onAddClick() }
-            ) {}
+        if (showAddEntry) {
+            item {
+                SettingsBaseWidget(
+                    icon = Icons.Filled.Add,
+                    title = addTitle,
+                    description = null,
+                    onClick = { onAddClick() }
+                ) {}
+            }
         }
 
         if (paths.isEmpty()) {
@@ -1380,18 +1408,19 @@ private fun PathEditDialog(
 }
 
 @Composable
-private fun UnameDialog(
-    initialUname: String,
-    initialBuildTime: String,
+private fun SingleValueDialog(
+    title: String,
+    label: String,
+    placeholder: String,
+    initialValue: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit,
+    onConfirm: (String) -> Unit,
 ) {
-    var unameValue by remember(initialUname) { mutableStateOf(initialUname) }
-    var buildTimeValue by remember(initialBuildTime) { mutableStateOf(initialBuildTime) }
+    var value by remember(initialValue) { mutableStateOf(initialValue) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.susfs_config_title)) },
+        title = { Text(title) },
         text = {
             LazyColumn(
                 modifier = Modifier
@@ -1399,21 +1428,10 @@ private fun UnameDialog(
             ) {
                 item {
                     OutlinedTextField(
-                        value = unameValue,
-                        onValueChange = { unameValue = it },
-                        label = { Text(stringResource(R.string.susfs_uname_label)) },
-                        placeholder = { Text(stringResource(R.string.susfs_uname_placeholder)) },
-                        singleLine = true
-                    )
-                }
-
-                item {
-                    OutlinedTextField(
-                        modifier = Modifier.padding(top = 8.dp),
-                        value = buildTimeValue,
-                        onValueChange = { buildTimeValue = it },
-                        label = { Text(stringResource(R.string.susfs_build_time_label)) },
-                        placeholder = { Text(stringResource(R.string.susfs_build_time_placeholder)) },
+                        value = value,
+                        onValueChange = { value = it },
+                        label = { Text(label) },
+                        placeholder = { Text(placeholder) },
                         singleLine = true
                     )
                 }
@@ -1421,7 +1439,7 @@ private fun UnameDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(unameValue, buildTimeValue) }
+                onClick = { onConfirm(value) }
             ) {
                 Text(text = stringResource(R.string.susfs_apply))
             }
@@ -1432,6 +1450,35 @@ private fun UnameDialog(
             }
         }
     )
+}
+
+@Composable
+private fun AppEntryIcon(
+    packageName: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var iconDrawable by remember(packageName) { mutableStateOf<android.graphics.drawable.Drawable?>(null) }
+
+    LaunchedEffect(packageName) {
+        iconDrawable = runCatching {
+            context.packageManager.getApplicationIcon(packageName)
+        }.getOrNull()
+    }
+
+    if (iconDrawable != null) {
+        Image(
+            painter = rememberDrawablePainter(iconDrawable!!),
+            contentDescription = null,
+            modifier = modifier.clip(RoundedCornerShape(8.dp))
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Filled.Apps,
+            contentDescription = null,
+            modifier = modifier
+        )
+    }
 }
 
 @Composable
@@ -1613,9 +1660,16 @@ private fun AddAppPathDialog(
                     items(filtered, key = { it.packageName }) { app ->
                         val checked = selected.contains(app.packageName)
                         SettingsBaseWidget(
-                            icon = Icons.Filled.Apps,
+                            icon = null,
+                            iconPlaceholder = false,
                             title = app.label,
                             description = app.packageName,
+                            rowHeader = {
+                                AppEntryIcon(
+                                    packageName = app.packageName,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            },
                             onClick = {
                                 selected = if (checked) selected - app.packageName else selected + app.packageName
                             }
