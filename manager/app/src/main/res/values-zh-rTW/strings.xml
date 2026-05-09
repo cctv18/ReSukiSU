@@ -414,14 +414,6 @@
     <string name="susfs_no_features_found">未找到功能狀態的資訊</string>
     <string name="susfs_feature_enabled">已啟用</string>
     <string name="susfs_feature_disabled">已停用</string>
-    <string name="sus_path_feature_label">SuS 路徑支援</string>
-    <string name="spoof_uname_feature_label">偽裝 uname 支援</string>
-    <string name="spoof_cmdline_feature_label">偽裝 Cmdline/Bootconfig</string>
-    <string name="open_redirect_feature_label">開啟重定向支援</string>
-    <string name="enable_log_feature_label">日誌記錄支援</string>
-    <string name="hide_symbols_feature_label">隱藏 KSU SuSFS 符號</string>
-    <string name="sus_kstat_feature_label">SuS Kstat 支援</string>
-    <string name="sus_map_feature_label">SUS 映射支援</string>
     <string name="susfs_feature_configurable">可配置的 SuSFS 功能</string>
     <string name="susfs_enable_log_label">SuSFS 啟用日誌</string>
     <string name="susfs_log_config_description">啟用或停用 SuSFS 的日誌</string>
@@ -493,7 +485,7 @@
     <string name="restore">還原</string>
     <string name="susfs_restore_description">從備份檔案還原 SuSFS 配置。這將覆寫所有目前的設定</string>
     <string name="susfs_restore_select_file">選擇備份檔案</string>
-    <string name="susfs_restore_success" formatted="false">已成功還原配置，備份建立於 %s，來自裝置：%s</string>
+    <string name="susfs_restore_success" formatted="false">已成功還原配置</string>
     <string name="susfs_restore_failed">還原失敗：%s</string>
     <string name="susfs_restore_confirm_title">確認還原</string>
     <string name="susfs_restore_confirm_description">這將覆寫所有目前的 SuSFS 配置。您確定要繼續嗎？</string>

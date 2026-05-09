@@ -336,15 +336,6 @@
     <string name="susfs_set_sdcard_path">Atur Jalur SD Card</string>
     <string name="susfs_enabled_features_description">Tampilkan status fitur SuSFS yang saat ini diaktifkan</string>
     <string name="susfs_no_features_found">Tidak ditemukan informasi status fitur</string>
-    <string name="susfs_feature_enabled">Diaktifkan</string>
-    <string name="susfs_feature_disabled">Dinonaktifkan</string>
-    <string name="sus_path_feature_label">Dukungan Jalur SUS</string>
-    <string name="spoof_uname_feature_label">Dukungan Spoof uname</string>
-    <string name="spoof_cmdline_feature_label">Spoof Cmdline/Bootconfig</string>
-    <string name="open_redirect_feature_label">Dukungan Pengalihan Terbuka</string>
-    <string name="enable_log_feature_label">Dukungan Logging</string>
-    <string name="hide_symbols_feature_label">Sembunyikan Simbol KSU SUSFS</string>
-    <string name="sus_kstat_feature_label">Dukungan SUS Kstat</string>
     <string name="susfs_feature_configurable">Fitur SuSFS yang Dapat Dikonfigurasi</string>
     <string name="susfs_enable_log_label">Aktifkan Log SuSFS</string>
     <string name="susfs_log_config_description">Aktifkan atau nonaktifkan logging untuk SuSFS</string>
@@ -416,7 +407,6 @@
     <string name="restore">Pulihkan</string>
     <string name="susfs_restore_description">Pulihkan konfigurasi SuSFS dari file backup. Ini akan menimpa semua pengaturan saat ini.</string>
     <string name="susfs_restore_select_file">Pilih File Backup</string>
-    <string name="susfs_restore_success" formatted="false">Konfigurasi berhasil dipulihkan dari backup yang dibuat pada %s dari perangkat: %s</string>
     <string name="susfs_restore_failed">Pemulihan gagal: %s</string>
     <string name="susfs_restore_confirm_title">Konfirmasi Pemulihan</string>
     <string name="susfs_restore_confirm_description">Ini akan menimpa semua konfigurasi SuSFS saat ini. Apakah Anda yakin ingin melanjutkan?</string>

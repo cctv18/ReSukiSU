@@ -350,14 +350,6 @@
     <string name="susfs_no_features_found">機能のステータス情報が見つかりません</string>
     <string name="susfs_feature_enabled">有効</string>
     <string name="susfs_feature_disabled">無効</string>
-    <string name="sus_path_feature_label">SUS パスの対応</string>
-    <string name="spoof_uname_feature_label">uname 偽装の対応</string>
-    <string name="spoof_cmdline_feature_label">Cmdline/Bootconfig を偽装</string>
-    <string name="open_redirect_feature_label">オープンリダイレクトの対応</string>
-    <string name="enable_log_feature_label">ログの対応</string>
-    <string name="hide_symbols_feature_label">KSU SUSFS シンボルを非表示</string>
-    <string name="sus_kstat_feature_label">SUS Kstat の対応</string>
-    <string name="sus_map_feature_label">SUS マップの対応</string>
     <string name="susfs_feature_configurable">構成可能な SuSFS の機能</string>
     <string name="susfs_enable_log_label">SuSFS のログ取得を有効化</string>
     <string name="susfs_log_config_description">SuSFS のログ取得を有効化または無効化します。</string>
@@ -429,7 +421,6 @@
     <string name="restore">復元</string>
     <string name="susfs_restore_description">SuSFS の構成をバックアップファイルから復元します。これにより、現在の設定がすべて上書きされます。</string>
     <string name="susfs_restore_select_file">バックアップファイルを選択</string>
-    <string name="susfs_restore_success" formatted="false">デバイス: %s から「%s」に作成されたバックアップから構成が正常に復元されました。</string>
     <string name="susfs_restore_failed">復元に失敗しました: %s</string>
     <string name="susfs_restore_confirm_title">復元を確認</string>
     <string name="susfs_restore_confirm_description">これにより現在の SuSFS 構成がすべて上書きされます。続行してもよろしいですか？</string>

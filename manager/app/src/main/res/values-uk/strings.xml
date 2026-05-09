@@ -330,13 +330,6 @@
     <string name="susfs_no_features_found">Інформацію про статус функцій не знайдено</string>
     <string name="susfs_feature_enabled">Увімкнено</string>
     <string name="susfs_feature_disabled">Вимкнено</string>
-    <string name="sus_path_feature_label">Підтримка шляхів SUS</string>
-    <string name="spoof_uname_feature_label">Підтримка підміни uname</string>
-    <string name="spoof_cmdline_feature_label">Підміна Cmdline/Bootconfig</string>
-    <string name="open_redirect_feature_label">Підтримка Open Redirect</string>
-    <string name="enable_log_feature_label">Підтримка логування</string>
-    <string name="hide_symbols_feature_label">Приховати символи KSU SUSFS</string>
-    <string name="sus_kstat_feature_label">Підтримка SUS Kstat</string>
     <string name="susfs_feature_configurable">Настроювані функції SuSFS</string>
     <string name="susfs_enable_log_label">Увімкнути лог SuSFS</string>
     <string name="susfs_log_config_description">Увімкнути або вимкнути логування для SuSFS</string>
@@ -406,7 +399,6 @@
     <string name="restore">Відновлення</string>
     <string name="susfs_restore_description">Відновити конфігурації SuSFS з файлу резервної копії. Це перезапише всі поточні налаштування.</string>
     <string name="susfs_restore_select_file">Вибрати файл резервної копії</string>
-    <string name="susfs_restore_success" formatted="false">Конфігурацію успішно відновлено з резервної копії, створеної %s на пристрої: %s</string>
     <string name="susfs_restore_failed">Не вдалося відновити: %s</string>
     <string name="susfs_restore_confirm_title">Підтвердити відновлення</string>
     <string name="susfs_restore_confirm_description">Це перезапише всі поточні конфігурації SuSFS. Ви впевнені, що хочете продовжити?</string>

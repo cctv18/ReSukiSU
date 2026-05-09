@@ -346,14 +346,6 @@
     <string name="susfs_no_features_found">기능 상태 정보를 찾을 수 없음</string>
     <string name="susfs_feature_enabled">활성화됨</string>
     <string name="susfs_feature_disabled">비활성화됨</string>
-    <string name="sus_path_feature_label">SUS 경로 지원</string>
-    <string name="spoof_uname_feature_label">Uname 스푸핑 지원</string>
-    <string name="spoof_cmdline_feature_label">Cmdline/Bootconfig 스푸핑</string>
-    <string name="open_redirect_feature_label">Open Redirect 지원</string>
-    <string name="enable_log_feature_label">로깅 지원</string>
-    <string name="hide_symbols_feature_label">KSU SUSFS 심볼 숨기기</string>
-    <string name="sus_kstat_feature_label">SUS Kstat 지원</string>
-    <string name="sus_map_feature_label">SUS Map 지원</string>
     <string name="susfs_feature_configurable">구성 가능한 SuSFS 기능</string>
     <string name="susfs_enable_log_label">SuSFS 로그 활성화</string>
     <string name="susfs_log_config_description">SuSFS에 대한 로깅을 활성화 또는 비활성화합니다.</string>
@@ -424,7 +416,6 @@
     <string name="restore">복원</string>
     <string name="susfs_restore_description">백업 파일에서 SuSFS 구성을 복원합니다. 이렇게 하면 모든 현재 설정을 덮어씁니다.</string>
     <string name="susfs_restore_select_file">백업 파일 선택</string>
-    <string name="susfs_restore_success" formatted="false">%s에 기기 %s에서 생성된 백업에서 구성이 복원되었습니다.</string>
     <string name="susfs_restore_failed">복원 실패: %s</string>
     <string name="susfs_restore_confirm_title">복원 확인</string>
     <string name="susfs_restore_confirm_description">현재의 모든 SuSFS 구성을 덮어씁니다. 계속할까요?</string>

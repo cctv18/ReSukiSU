@@ -1,11 +1,13 @@
 package com.resukisu.resukisu.ui.screen
 
+import android.annotation.SuppressLint
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -77,8 +79,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ui.component.DialogHandle
 import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
@@ -100,7 +102,6 @@ import com.resukisu.resukisu.ui.viewmodel.SuSFSScreenViewModel
 import com.resukisu.resukisu.ui.viewmodel.SuSFSStaticKstatEntry
 import com.resukisu.resukisu.ui.viewmodel.SuperUserViewModel
 import kotlinx.coroutines.launch
-import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -486,28 +487,23 @@ private fun SuSPathTab(
     contentPadding: PaddingValues,
     nestedScrollConnection: NestedScrollConnection,
 ) {
+    val coroutineScope = rememberCoroutineScope()
     val uiState = viewModel.uiState
     val pathEditDialog = rememberPathEditDialog(AddPathTarget.SusPath, viewModel)
-    var showAddAppDialog by remember { mutableStateOf(false) }
     var appEntries by remember { mutableStateOf<List<SuSFSAppEntry>>(emptyList()) }
-    var appLoading by remember { mutableStateOf(false) }
 
-    LaunchedEffect(showAddAppDialog) {
-        if (showAddAppDialog && appEntries.isEmpty()) {
-            appLoading = true
-            appEntries = viewModel.loadSelectableApps()
-            appLoading = false
-        }
-    }
-
-    if (showAddAppDialog) {
+    lateinit var addAppDialog: DialogHandle
+    addAppDialog = rememberCustomDialog { dismiss ->
         AddAppPathDialog(
             apps = appEntries,
-            isLoading = appLoading,
-            onDismiss = { showAddAppDialog = false },
+            isLoading = addAppDialog.isShown,
+            onDismiss = dismiss,
             onConfirm = { packageNames ->
                 viewModel.addAppPaths(packageNames)
-                showAddAppDialog = false
+                coroutineScope.launch {
+                    appEntries = viewModel.loadSelectableApps()
+                }
+                dismiss()
             }
         )
     }
@@ -571,7 +567,9 @@ private fun SuSPathTab(
                             icon = Icons.Filled.Apps,
                             title = stringResource(R.string.add_app_path),
                             description = null,
-                            onClick = { showAddAppDialog = true }
+                            onClick = {
+                                addAppDialog.show()
+                            }
                         ) {}
                     }
                     item {
@@ -630,6 +628,7 @@ private fun SuSPathTab(
     }
 }
 
+@SuppressLint("LocalContextGetResourceValueCall")
 @Composable
 private fun BasicTab(
     viewModel: SuSFSScreenViewModel,
@@ -637,108 +636,68 @@ private fun BasicTab(
     nestedScrollConnection: NestedScrollConnection,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val uiState = viewModel.uiState
-    var showSlotDialog by remember { mutableStateOf(false) }
-    var showRestoreConfirm by remember { mutableStateOf(false) }
-    var backupFileToRestore by remember { mutableStateOf<String?>(null) }
+    var backupFileUri by remember { mutableStateOf<Uri?>(null) }
 
-    val backupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val tempFile = File(
-            context.cacheDir,
-            "susfs_${
-                SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-            }.json"
-        )
-        viewModel.backupCurrentConfig(tempFile.absolutePath) { ok, err ->
-            if (!ok) {
-                viewModel.postToast(err ?: context.getString(R.string.susfs_backup_failed, ""))
-            } else {
-                runCatching {
-                    context.contentResolver.openOutputStream(uri)?.use { output ->
-                        tempFile.inputStream().use { input ->
-                            input.copyTo(output)
+    val restoreConfirmDialog = rememberCustomDialog { dismiss ->
+        AlertDialog(
+            onDismissRequest = dismiss,
+            title = {
+                Text(stringResource(R.string.susfs_restore_confirm_title))
+            },
+            text = {
+                Text(stringResource(R.string.susfs_restore_confirm_description))
+            },
+            confirmButton = {
+                val susfsBackupInvalidFormat = stringResource(R.string.susfs_backup_invalid_format)
+                val susfsRestoreSuccess = stringResource(R.string.susfs_restore_success)
+                val rebootToApply = stringResource(R.string.reboot_to_apply)
+
+                TextButton(
+                    onClick = {
+                        backupFileUri?.let {
+                            context.contentResolver.openInputStream(it)?.use { inputStream ->
+                                viewModel.restoreConfig(inputStream) { ok ->
+                                    if (!ok) {
+                                        viewModel.postToast(susfsBackupInvalidFormat)
+                                    } else {
+                                        viewModel.postToast(susfsRestoreSuccess)
+                                        viewModel.postToast(rebootToApply)
+                                    }
+                                }
+
+                                dismiss()
+                            }
                         }
                     }
-                    tempFile.delete()
+                ) {
+                    Text(stringResource(R.string.susfs_restore_confirm))
                 }
-                viewModel.postToast(context.getString(R.string.susfs_backup_success, tempFile.name))
+            },
+            dismissButton = {
+                TextButton(onClick = dismiss) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
-        }
+        )
     }
 
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val tempFile = File(context.cacheDir, "susfs_restore_temp.json")
-            runCatching {
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    tempFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-            }
-            viewModel.validateBackup(tempFile.absolutePath) { ok, err ->
-                if (!ok) {
-                    viewModel.postToast(err ?: context.getString(R.string.operation_failed))
-                } else {
-                    backupFileToRestore = tempFile.absolutePath
-                    showRestoreConfirm = true
-                }
-            }
-        }
-    }
-
-    if (showSlotDialog) {
+    val slotDialog = rememberCustomDialog { dismiss ->
         SlotInfoDialog(
             slotInfoList = viewModel.slotInfoList,
             currentActiveSlot = viewModel.currentActiveSlot,
             isLoading = viewModel.slotInfoLoading,
-            onDismiss = { showSlotDialog = false },
+            onDismiss = dismiss,
             onRefresh = { viewModel.refreshSlotInfo() },
             onUseUname = {
                 viewModel.useSlotUname(it)
-                showSlotDialog = false
+                viewModel.refreshSlotInfo()
+                dismiss()
             },
             onUseBuildTime = {
                 viewModel.useSlotBuildTime(it)
-                showSlotDialog = false
-            }
-        )
-    }
-
-    if (showRestoreConfirm) {
-        AlertDialog(
-            onDismissRequest = { showRestoreConfirm = false },
-            title = { Text(stringResource(R.string.susfs_restore_confirm_title)) },
-            text = { Text(stringResource(R.string.susfs_restore_confirm_description)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val path = backupFileToRestore
-                        if (path != null) {
-                            viewModel.restoreFromBackupFile(path) { ok, err ->
-                                if (!ok) {
-                                    viewModel.postToast(err ?: context.getString(R.string.susfs_restore_failed, ""))
-                                } else {
-                                    viewModel.postToast(context.getString(R.string.susfs_restore_success, "", ""))
-                                    viewModel.postToast(context.getString(R.string.reboot_to_apply))
-                                }
-                            }
-                        }
-                        showRestoreConfirm = false
-                    }
-                ) { Text(stringResource(R.string.susfs_restore_confirm)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
+                viewModel.refreshSlotInfo()
+                dismiss()
             }
         )
     }
@@ -768,6 +727,23 @@ private fun BasicTab(
                 dismiss()
             }
         )
+    }
+
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        context.contentResolver.openOutputStream(uri)?.let(viewModel::backupConfig)
+    }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+
+        backupFileUri = uri
+        restoreConfirmDialog.show()
     }
 
     Column(
@@ -897,8 +873,7 @@ private fun BasicTab(
                             title = stringResource(R.string.susfs_slot_info_title),
                             description = stringResource(R.string.susfs_slot_info_description),
                             onClick = {
-                                showSlotDialog = true
-                                viewModel.refreshSlotInfo()
+                                slotDialog.show()
                             }
                         ) {}
                     }
@@ -989,8 +964,8 @@ fun SuSFSConfigScreen() {
     val pagerState = rememberPagerState(pageCount = { SuSFSTab.entries.size })
     val animationScope = rememberCoroutineScope()
 
-    LaunchedEffect(viewModel.toastMessage) {
-        val message = viewModel.toastMessage ?: return@LaunchedEffect
+    LaunchedEffect(viewModel.snackbarText) {
+        val message = viewModel.snackbarText ?: return@LaunchedEffect
         snackBarHost.showSnackbar(message)
         viewModel.consumeToastMessage()
     }
@@ -1281,12 +1256,10 @@ private fun FeatureGroup(
 
         features.forEach { feature ->
             item(key = feature.key) {
-                var showLogConfigDialog by remember(feature.key) { mutableStateOf(false) }
                 var logEnabled by remember(feature.key) { mutableStateOf(viewModel.uiState.susfsLogEnabled) }
-
-                if (showLogConfigDialog && feature.configurable) {
+                val logControlDialog = rememberCustomDialog { dismiss ->
                     AlertDialog(
-                        onDismissRequest = { showLogConfigDialog = false },
+                        onDismissRequest = dismiss,
                         title = { Text(stringResource(R.string.susfs_log_config_title)) },
                         text = {
                             LazyColumn(
@@ -1315,7 +1288,7 @@ private fun FeatureGroup(
                             TextButton(
                                 onClick = {
                                     viewModel.setSusfsLogEnabled(logEnabled)
-                                    showLogConfigDialog = false
+                                    dismiss()
                                 }
                             ) {
                                 Text(text = stringResource(R.string.susfs_apply))
@@ -1325,7 +1298,7 @@ private fun FeatureGroup(
                             TextButton(
                                 onClick = {
                                     logEnabled = viewModel.uiState.susfsLogEnabled
-                                    showLogConfigDialog = false
+                                    dismiss()
                                 }
                             ) {
                                 Text(text = stringResource(R.string.cancel))
@@ -1346,7 +1319,7 @@ private fun FeatureGroup(
                     onClick = {
                         if (feature.configurable) {
                             logEnabled = viewModel.uiState.susfsLogEnabled
-                            showLogConfigDialog = true
+                            logControlDialog.show()
                         }
                     },
                     descriptionColumnContent = {

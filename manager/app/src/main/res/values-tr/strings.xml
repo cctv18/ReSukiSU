@@ -410,14 +410,6 @@
     <string name="susfs_no_features_found">Özellik durumu bilgisi bulunamadı</string>
     <string name="susfs_feature_enabled">Etkinleştirildi</string>
     <string name="susfs_feature_disabled">Devre Dışı Bırakıldı</string>
-    <string name="sus_path_feature_label">SUS Yol Desteği</string>
-    <string name="spoof_uname_feature_label">Uname Taklit Desteği</string>
-    <string name="spoof_cmdline_feature_label">Cmdline/Bootconfig Taklit</string>
-    <string name="open_redirect_feature_label">Açık Yönlendirme Desteği</string>
-    <string name="enable_log_feature_label">Günlük Kaydı Desteği</string>
-    <string name="hide_symbols_feature_label">KSU SUSFS Sembollerini Gizle</string>
-    <string name="sus_kstat_feature_label">SUS Kstat Desteği</string>
-    <string name="sus_map_feature_label">SUS Eşleme Desteği</string>
     <string name="susfs_feature_configurable">Yapılandırılabilir SuSFS Özellikleri</string>
     <string name="susfs_enable_log_label">SuSFS Günlük Kaydını Etkinleştir</string>
     <string name="susfs_log_config_description">SuSFS için günlük kaydını etkinleştir veya devre dışı bırak</string>
@@ -487,7 +479,6 @@
     <string name="restore">Geri Yükle</string>
     <string name="susfs_restore_description">SuSFS yapılandırmalarını bir yedekleme dosyasından geri yükleyin. Bu, tüm mevcut ayarların üzerine yazacaktır.</string>
     <string name="susfs_restore_select_file">Yedekleme Dosyası Seç</string>
-    <string name="susfs_restore_success" formatted="false">%s tarihinde %s cihazından oluşturulan yedekten yapılandırma başarıyla geri yüklendi</string>
     <string name="susfs_restore_failed">Geri yükleme başarısız: %s</string>
     <string name="susfs_restore_confirm_title">Geri Yüklemeyi Onayla</string>
     <string name="susfs_restore_confirm_description">Bu, tüm mevcut SuSFS yapılandırmalarının üzerine yazacaktır. Devam etmek istediğinizden emin misiniz?</string>

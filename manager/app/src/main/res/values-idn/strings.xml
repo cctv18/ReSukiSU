@@ -349,12 +349,6 @@ Tanamkan: Secara permanen memasang ke sistem</string>
     <string name="susfs_no_features_found">Informasi status fitur tidak ditemukan</string>
     <string name="susfs_feature_enabled">Diaktifkan</string>
     <string name="susfs_feature_disabled">Dinonaktifkan</string>
-    <string name="sus_path_feature_label">Dukungan Jalur SUS</string>
-    <string name="spoof_uname_feature_label">Dukungan Spoof Uname</string>
-    <string name="open_redirect_feature_label">Dukungan Open Redirect</string>
-    <string name="enable_log_feature_label">Dukungan Logging</string>
-    <string name="hide_symbols_feature_label">Sembunyikan Simbol KSU SUSFS</string>
-    <string name="sus_kstat_feature_label">Dukungan SUS Kstat</string>
     <string name="susfs_feature_configurable">Fitur SuSFS yang Dapat Dikonfigurasi</string>
     <string name="susfs_enable_log_label">Aktifkan Log SuSFS</string>
     <string name="susfs_log_config_description">Aktifkan atau nonaktifkan logging untuk SuSFS</string>
@@ -424,7 +418,6 @@ Tanamkan: Secara permanen memasang ke sistem</string>
     <string name="restore">Pulihkan</string>
     <string name="susfs_restore_description">Pulihkan konfigurasi SuSFS dari file cadangan. Ini akan menimpa semua pengaturan saat ini.</string>
     <string name="susfs_restore_select_file">Pilih File Cadangan</string>
-    <string name="susfs_restore_success" formatted="false">Konfigurasi berhasil dipulihkan dari cadangan yang dibuat %s pada perangkat: %s</string>
     <string name="susfs_restore_failed">Gagal memulihkan: %s</string>
     <string name="susfs_restore_confirm_title">Konfirmasi Pemulihan</string>
     <string name="susfs_restore_confirm_description">Ini akan menimpa semua konfigurasi SuSFS saat ini. Apakah Anda yakin ingin melanjutkan?</string>
