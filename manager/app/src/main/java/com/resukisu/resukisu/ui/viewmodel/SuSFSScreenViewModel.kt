@@ -16,7 +16,6 @@ import com.resukisu.resukisu.ui.util.getSuSFSFeatures
 import com.resukisu.resukisu.ui.util.getSuSFSStatus
 import com.resukisu.resukisu.ui.util.getSuSFSVersion
 import com.resukisu.resukisu.ui.util.runCmd
-import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.io.SuFile
 import com.topjohnwu.superuser.io.SuFileInputStream
 import com.topjohnwu.superuser.io.SuFileOutputStream
@@ -205,21 +204,6 @@ class SuSFSScreenViewModel : ViewModel() {
                 )
                 uiState = uiState.copy(susfsLogEnabled = enabled)
                 postToast(ksuApp.getString(R.string.reboot_to_apply))
-            }
-        }
-    }
-
-    fun resetAllSusPaths() {
-        viewModelScope.launch(Dispatchers.IO) {
-            var anySuccess = false
-            uiState.susPaths.forEach { path ->
-                if (runCommand("del_sus_path ${shellQuote(path)}", showSuccessSnackbar = false)) {
-                    anySuccess = true
-                }
-            }
-            if (anySuccess) {
-                postRebootToast()
-                refresh()
             }
         }
     }
@@ -612,12 +596,6 @@ class SuSFSScreenViewModel : ViewModel() {
             }
         }
         return@withContext result
-    }
-
-    private fun runShellCmd(shell: Shell, cmd: String): String {
-        val out = mutableListOf<String>()
-        shell.newJob().add(cmd).to(out, null).exec()
-        return out.joinToString("\n")
     }
 
     private fun parseFeatureStatus(rawOutput: String): List<SuSFSFeatureStatus> {
