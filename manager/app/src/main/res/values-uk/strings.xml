@@ -381,7 +381,6 @@
     <string name="susfs_hide_mounts_control_description">Керуйте поведінкою приховування монтувань SUS для процесів</string>
     <string name="susfs_hide_mounts_all_enabled">Увімкнено приховування монтувань SUS для всіх процесів</string>
     <string name="susfs_hide_mounts_all_disabled">Вимкнено приховування монтувань SUS для всіх процесів</string>
-    <string name="susfs_hide_mounts_recommendation">Рекомендується встановлювати у вимкнений стан після розблокування екрана, або на етапі service.sh чи boot-completed.sh, оскільки це повинно виправити проблему з деякими рутованими додатками, які залежать від монтувань, створених процесом KSU</string>
     <string name="susfs_hide_mounts_current_setting">Поточне налаштування: %s</string>
     <string name="susfs_hide_mounts_setting_all">Приховувати для всіх процесів</string>
     <string name="susfs_hide_mounts_setting_non_ksu">Приховувати лише для процесів, що не належать KSU</string>

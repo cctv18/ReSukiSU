@@ -467,7 +467,6 @@
     <string name="susfs_hide_mounts_control_description">控制 SuS 掛載對處理程序的隱藏行為</string>
     <string name="susfs_hide_mounts_all_enabled">已啟用對所有處理程序隱藏 SuS 掛載</string>
     <string name="susfs_hide_mounts_all_disabled">已停用對所有處理程序隱藏 SuS 掛載</string>
-    <string name="susfs_hide_mounts_recommendation">建議在 service.sh 或 boot-completed.sh 階段，或是在螢幕解鎖後設為停用。這可以修復一些依賴 KSU 處理程序掛載 root 應用程式的問題</string>
     <string name="susfs_hide_mounts_current_setting">目前的設定：%s</string>
     <string name="susfs_hide_mounts_setting_all">對所有處理程序隱藏</string>
     <string name="susfs_hide_mounts_setting_non_ksu">只對不是 KSU 處理程序隱藏</string>

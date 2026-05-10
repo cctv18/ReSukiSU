@@ -403,7 +403,6 @@
     <string name="susfs_hide_mounts_control_description">プロセスの SUS マウントを非表示する動作を制御します。</string>
     <string name="susfs_hide_mounts_all_enabled">すべてのプロセスで SUS マウントの非表示を有効化しました</string>
     <string name="susfs_hide_mounts_all_disabled">すべてのプロセスで SUS マウントの非表示を無効化しました</string>
-    <string name="susfs_hide_mounts_recommendation">画面のロック解除後または service.sh または boot-completed.sh の段階で無効に設定することを推奨します。これにより、KSU プロセスによってマウントされたマウントに依存する一部の root 化されたアプリの問題が解決されるはずです。</string>
     <string name="susfs_hide_mounts_current_setting">現在の設定: %s</string>
     <string name="susfs_hide_mounts_setting_all">すべてのプロセスを非表示</string>
     <string name="susfs_hide_mounts_setting_non_ksu">非 KSU プロセスのみ非表示</string>

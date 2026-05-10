@@ -107,7 +107,7 @@ class SuSFSScreenViewModel : ViewModel() {
     var currentActiveSlot by mutableStateOf("")
         private set
 
-    var slotInfoLoading by mutableStateOf(false)
+    var slotInfoLoading by mutableStateOf(true)
         private set
 
     init {
@@ -152,10 +152,7 @@ class SuSFSScreenViewModel : ViewModel() {
             val uname = unameValue.trim().ifEmpty { defaultSusfsValue }
             val buildTime = buildTimeValue.trim().ifEmpty { defaultSusfsValue }
             if (uname == defaultSusfsValue && buildTime == defaultSusfsValue) {
-                val success = runCommand("del_uname")
-                if (success) {
-                    postRebootToast()
-                }
+                runCommand("del_uname", showSuccessSnackbar = false)
                 return@launch
             }
             runCommand("set_uname ${shellQuote(uname)} ${shellQuote(buildTime)}")
@@ -588,7 +585,7 @@ class SuSFSScreenViewModel : ViewModel() {
                 "get",
                 String::class.java, String::class.java
             )
-            .invoke(null)
+            .invoke(null, "ro.boot.slot_suffix", "unknown") // unknown = A only
 
         return@withContext when (suffix) {
             "_a" -> "boot_a"

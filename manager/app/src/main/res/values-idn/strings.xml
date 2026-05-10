@@ -400,7 +400,6 @@ Tanamkan: Secara permanen memasang ke sistem</string>
     <string name="susfs_hide_mounts_control_description">Kontrol perilaku penyembunyian kaitan SUS untuk proses</string>
     <string name="susfs_hide_mounts_all_enabled">Mengaktifkan penyembunyian kaitan SUS untuk semua proses</string>
     <string name="susfs_hide_mounts_all_disabled">Menonaktifkan penyembunyian kaitan SUS untuk semua proses</string>
-    <string name="susfs_hide_mounts_recommendation">Disarankan untuk mengatur ke nonaktif setelah layar terbuka atau pada tahap service.sh atau boot-completed.sh, karena ini seharusnya memperbaiki masalah dengan beberapa aplikasi root yang bergantung pada kaitan yang dibuat oleh proses KSU</string>
     <string name="susfs_hide_mounts_current_setting">Pengaturan Saat Ini: %s</string>
     <string name="susfs_hide_mounts_setting_all">Sembunyikan untuk Semua Proses</string>
     <string name="susfs_hide_mounts_setting_non_ksu">Sembunyikan Hanya untuk Proses Non-KSU</string>

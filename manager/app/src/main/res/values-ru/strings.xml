@@ -466,7 +466,6 @@
     <string name="susfs_hide_mounts_control_description">Управление режимом скрытия SUS монтирования для процессов</string>
     <string name="susfs_hide_mounts_all_enabled">Включено скрытие монтирования SUS для всех процессов</string>
     <string name="susfs_hide_mounts_all_disabled">Отключено скрытие монтирования SUS для всех процессов</string>
-    <string name="susfs_hide_mounts_recommendation">Рекомендуется отключить после разблокировки экрана или во время service.sh или boot-completed.sh, так как это должно исправить проблему на некоторых root-приложениях, которые опираются на монтирование, смонтированное процессом KSU</string>
     <string name="susfs_hide_mounts_current_setting">Текущие настройки: %s</string>
     <string name="susfs_hide_mounts_setting_all">Скрыть для всех процессов</string>
     <string name="susfs_hide_mounts_setting_non_ksu">Скрыть только для процессов, не связанных с KSU</string>

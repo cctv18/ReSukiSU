@@ -400,7 +400,6 @@
     <string name="susfs_hide_mounts_control_description">Kiểm soát hành vi ẩn của SuS Mount với các tiến trình</string>
     <string name="susfs_hide_mounts_all_enabled">Đã kích hoạt ẩn SuS Mount khỏi tất cả các tiến trình</string>
     <string name="susfs_hide_mounts_all_disabled">Đã vô hiệu hoá việc ẩn SuS Mount cho tất cả các tiến trình</string>
-    <string name="susfs_hide_mounts_recommendation">Nên vô hiệu hoá sau khi màn hình được mở khoá hoặc trong giai đoạn service.sh hoặc boot-completed.sh, vì điều này sẽ khắc phục sự cố trên một số ứng dụng đã root dựa vào mount bởi tiến trình KSU</string>
     <string name="susfs_hide_mounts_current_setting">Cài đặt hiện tại: %s</string>
     <string name="susfs_hide_mounts_setting_all">Ẩn khỏi tất cả các tiến trình</string>
     <string name="susfs_hide_mounts_setting_non_ksu">Chỉ ẩn đối với các tiến trình không phải KSU</string>

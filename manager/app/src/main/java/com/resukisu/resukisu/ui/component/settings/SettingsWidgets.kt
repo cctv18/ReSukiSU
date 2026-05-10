@@ -265,6 +265,7 @@ fun SettingsBaseWidget(
 @Composable
 fun SettingsTextFieldWidget(
     modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
     state: TextFieldState,
     onClick: (() -> Unit)? = null,
     title: String = "",
@@ -352,7 +353,7 @@ fun SettingsTextFieldWidget(
     SettingsBaseWidget(
         modifier = modifier,
         title = if (showTitle) title else null,
-        icon = null,
+        icon = icon,
         iconPlaceholder = false,
         rowHeader = {
             leadingIcon?.invoke()
@@ -963,6 +964,7 @@ object SuperDropdownDefaults {
 
 inline fun <T> LazyListScope.splicedLazyColumnGroup(
     items: List<T>,
+    enableHorizontalPadding: Boolean = true,
     noinline key: ((index: Int, item: T) -> Any)? = null,
     crossinline contentType: (index: Int, item: T) -> Any? = { _, _ -> null },
     crossinline itemContent: @Composable LazyItemScope.(index: Int, item: T) -> Unit,
@@ -995,8 +997,10 @@ inline fun <T> LazyListScope.splicedLazyColumnGroup(
 
         Surface(
             modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .padding(top = 2.dp),
+                .padding(top = 2.dp)
+                .then(
+                    if (enableHorizontalPadding) Modifier.padding(horizontal = 16.dp) else Modifier
+                ),
             shape = RoundedCornerShape(
                 topStart = animatedTopRadius,
                 topEnd = animatedTopRadius,

@@ -461,7 +461,6 @@
     <string name="susfs_hide_mounts_control_description">İşlemler için SUS bağlama noktalarının gizleme davranışını kontrol et</string>
     <string name="susfs_hide_mounts_all_enabled">Tüm işlemler için SUS bağlama noktalarını gizleme etkinleştirildi</string>
     <string name="susfs_hide_mounts_all_disabled">Tüm işlemler için SUS bağlama noktalarını gizleme devre dışı bırakıldı</string>
-    <string name="susfs_hide_mounts_recommendation">Ekran kilidi açıldıktan sonra veya service.sh ya da boot-completed.sh aşamasında devre dışı bırakılması önerilir, çünkü bu, KSU işlemi tarafından bağlanan bağlama noktalarına dayanan bazı rootlu uygulamalardaki sorunu çözmelidir</string>
     <string name="susfs_hide_mounts_current_setting">Mevcut ayar: %s</string>
     <string name="susfs_hide_mounts_setting_all">Tüm işlemler için gizle</string>
     <string name="susfs_hide_mounts_setting_non_ksu">Sadece KSU dışı işlemler için gizle</string>

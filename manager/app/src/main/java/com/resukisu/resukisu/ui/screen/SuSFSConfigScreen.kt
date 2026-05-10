@@ -24,23 +24,26 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -69,6 +72,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,6 +80,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
@@ -89,7 +94,9 @@ import com.resukisu.resukisu.ui.component.rememberCustomDialog
 import com.resukisu.resukisu.ui.component.settings.AppBackButton
 import com.resukisu.resukisu.ui.component.settings.SettingsBaseWidget
 import com.resukisu.resukisu.ui.component.settings.SettingsSwitchWidget
+import com.resukisu.resukisu.ui.component.settings.SettingsTextFieldWidget
 import com.resukisu.resukisu.ui.component.settings.SplicedColumnGroup
+import com.resukisu.resukisu.ui.component.settings.splicedLazyColumnGroup
 import com.resukisu.resukisu.ui.navigation.LocalNavigator
 import com.resukisu.resukisu.ui.theme.CardConfig
 import com.resukisu.resukisu.ui.theme.ThemeConfig
@@ -101,6 +108,7 @@ import com.resukisu.resukisu.ui.viewmodel.SuSFSFeatureStatus
 import com.resukisu.resukisu.ui.viewmodel.SuSFSScreenViewModel
 import com.resukisu.resukisu.ui.viewmodel.SuSFSStaticKstatEntry
 import com.resukisu.resukisu.ui.viewmodel.SuperUserViewModel
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -243,12 +251,6 @@ private fun SuSFeaturesTab(
                 FeatureGroup(viewModel = viewModel, features = uiState.featureStatus)
             }
         }
-        BottomCenterOutlinedAction(
-            modifier = Modifier.padding(bottom = contentPadding.calculateBottomPadding()),
-            icon = Icons.Filled.Refresh,
-            text = stringResource(R.string.refresh),
-            onClick = { viewModel.refresh() },
-        )
     }
 }
 
@@ -492,11 +494,12 @@ private fun SuSPathTab(
     val pathEditDialog = rememberPathEditDialog(AddPathTarget.SusPath, viewModel)
     var appEntries by remember { mutableStateOf<List<SuSFSAppEntry>>(emptyList()) }
 
-    lateinit var addAppDialog: DialogHandle
+    var addAppDialog: DialogHandle? by remember { mutableStateOf(null) }
+
     addAppDialog = rememberCustomDialog { dismiss ->
         AddAppPathDialog(
             apps = appEntries,
-            isLoading = addAppDialog.isShown,
+            isLoading = addAppDialog?.isShown ?: false,
             onDismiss = dismiss,
             onConfirm = { packageNames ->
                 viewModel.addAppPaths(packageNames)
@@ -568,7 +571,7 @@ private fun SuSPathTab(
                             title = stringResource(R.string.add_app_path),
                             description = null,
                             onClick = {
-                                addAppDialog.show()
+                                addAppDialog?.show()
                             }
                         ) {}
                     }
@@ -619,12 +622,6 @@ private fun SuSPathTab(
                 )
             }
         }
-        BottomCenterOutlinedAction(
-            modifier = Modifier.padding(bottom = contentPadding.calculateBottomPadding()),
-            icon = Icons.Filled.Delete,
-            text = stringResource(R.string.susfs_reset_paths_title),
-            onClick = { viewModel.resetAllSusPaths() },
-        )
     }
 }
 
@@ -635,52 +632,8 @@ private fun BasicTab(
     contentPadding: PaddingValues,
     nestedScrollConnection: NestedScrollConnection,
 ) {
-    val context = LocalContext.current
     val uiState = viewModel.uiState
-    var backupFileUri by remember { mutableStateOf<Uri?>(null) }
-
-    val restoreConfirmDialog = rememberCustomDialog { dismiss ->
-        AlertDialog(
-            onDismissRequest = dismiss,
-            title = {
-                Text(stringResource(R.string.susfs_restore_confirm_title))
-            },
-            text = {
-                Text(stringResource(R.string.susfs_restore_confirm_description))
-            },
-            confirmButton = {
-                val susfsBackupInvalidFormat = stringResource(R.string.susfs_backup_invalid_format)
-                val susfsRestoreSuccess = stringResource(R.string.susfs_restore_success)
-                val rebootToApply = stringResource(R.string.reboot_to_apply)
-
-                TextButton(
-                    onClick = {
-                        backupFileUri?.let {
-                            context.contentResolver.openInputStream(it)?.use { inputStream ->
-                                viewModel.restoreConfig(inputStream) { ok ->
-                                    if (!ok) {
-                                        viewModel.postToast(susfsBackupInvalidFormat)
-                                    } else {
-                                        viewModel.postToast(susfsRestoreSuccess)
-                                        viewModel.postToast(rebootToApply)
-                                    }
-                                }
-
-                                dismiss()
-                            }
-                        }
-                    }
-                ) {
-                    Text(stringResource(R.string.susfs_restore_confirm))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = dismiss) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val slotDialog = rememberCustomDialog { dismiss ->
         SlotInfoDialog(
@@ -700,50 +653,6 @@ private fun BasicTab(
                 dismiss()
             }
         )
-    }
-
-    val unameDialog = rememberCustomDialog { dismiss ->
-        SingleValueDialog(
-            title = stringResource(R.string.susfs_uname_label),
-            label = stringResource(R.string.susfs_uname_label),
-            placeholder = stringResource(R.string.susfs_uname_placeholder),
-            initialValue = uiState.unameValue,
-            onDismiss = dismiss,
-            onConfirm = { uname ->
-                viewModel.setUnameAndBuildTime(uname, uiState.buildTimeValue)
-                dismiss()
-            }
-        )
-    }
-    val buildTimeDialog = rememberCustomDialog { dismiss ->
-        SingleValueDialog(
-            title = stringResource(R.string.susfs_build_time_label),
-            label = stringResource(R.string.susfs_build_time_label),
-            placeholder = stringResource(R.string.susfs_build_time_placeholder),
-            initialValue = uiState.buildTimeValue,
-            onDismiss = dismiss,
-            onConfirm = { buildTime ->
-                viewModel.setUnameAndBuildTime(uiState.unameValue, buildTime)
-                dismiss()
-            }
-        )
-    }
-
-    val backupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-
-        context.contentResolver.openOutputStream(uri)?.let(viewModel::backupConfig)
-    }
-
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-
-        backupFileUri = uri
-        restoreConfirmDialog.show()
     }
 
     Column(
@@ -796,12 +705,7 @@ private fun BasicTab(
                         SettingsSwitchWidget(
                             icon = Icons.Filled.VisibilityOff,
                             title = stringResource(R.string.susfs_hide_mounts_for_nonsu_procs),
-                            description = when {
-                                !uiState.hideMountsControlSupported -> {
-                                    stringResource(R.string.feature_status_unsupported_summary)
-                                }
-                                else -> stringResource(R.string.susfs_hide_mounts_for_nonsu_procs_description)
-                            },
+                            description = stringResource(R.string.susfs_hide_mounts_for_nonsu_procs_description),
                             checked = uiState.hideSuSMntsForNonSUProcs,
                             onCheckedChange = viewModel::setHideSusMountsForNonSUProcs
                         )
@@ -821,14 +725,6 @@ private fun BasicTab(
                             enabled = false
                         ) {}
                     }
-                    item {
-                        SettingsBaseWidget(
-                            icon = Icons.Filled.Info,
-                            title = null,
-                            description = stringResource(R.string.susfs_hide_mounts_recommendation),
-                            enabled = false
-                        ) {}
-                    }
                 }
             }
 
@@ -837,28 +733,60 @@ private fun BasicTab(
                     title = stringResource(R.string.susfs_tab_basic_settings)
                 ) {
                     item {
-                        SettingsBaseWidget(
+                        val state = rememberTextFieldState(initialText = uiState.unameValue)
+
+                        SettingsTextFieldWidget(
                             icon = Icons.Filled.Edit,
+                            lineLimits = TextFieldLineLimits.SingleLine,
                             title = stringResource(R.string.susfs_uname_label),
-                            description = uiState.unameValue,
-                            onClick = { unameDialog.show() },
-                        ) {
-                            IconButton(onClick = unameDialog::show) {
-                                Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
+                            state = state,
+                            onKeyboardAction = {
+                                keyboardController?.hide()
                             }
+                        )
+
+                        LaunchedEffect(state) {
+                            snapshotFlow { state.text }
+                                .drop(1)
+                                .collect { newText ->
+                                    viewModel.setUnameAndBuildTime(
+                                        newText.toString(),
+                                        uiState.buildTimeValue
+                                    )
+                                }
+                        }
+                    }
+                    item {
+                        val state = rememberTextFieldState(initialText = uiState.buildTimeValue)
+
+                        SettingsTextFieldWidget(
+                            icon = Icons.Filled.Edit,
+                            lineLimits = TextFieldLineLimits.SingleLine,
+                            title = stringResource(R.string.susfs_build_time_label),
+                            state = state,
+                            onKeyboardAction = {
+                                keyboardController?.hide()
+                            }
+                        )
+
+                        LaunchedEffect(state) {
+                            snapshotFlow { state.text }
+                                .drop(1)
+                                .collect { newText ->
+                                    viewModel.setUnameAndBuildTime(
+                                        uiState.unameValue,
+                                        newText.toString()
+                                    )
+                                }
                         }
                     }
                     item {
                         SettingsBaseWidget(
-                            icon = Icons.Filled.Edit,
-                            title = stringResource(R.string.susfs_build_time_label),
-                            description = uiState.buildTimeValue,
-                            onClick = { buildTimeDialog.show() },
-                        ) {
-                            IconButton(onClick = buildTimeDialog::show) {
-                                Icon(imageVector = Icons.Filled.Edit, contentDescription = null)
-                            }
-                        }
+                            icon = Icons.Filled.Delete,
+                            title = stringResource(R.string.susfs_reset_to_default),
+                            description = null,
+                            onClick = { viewModel.setUnameAndBuildTime("", "") }
+                        ) {}
                     }
                 }
             }
@@ -902,46 +830,6 @@ private fun BasicTab(
                         ) {}
                     }
                 }
-            }
-            item {
-                SettingsBaseWidget(
-                    icon = Icons.Filled.Delete,
-                    title = stringResource(R.string.susfs_reset_to_default),
-                    description = null,
-                    onClick = { viewModel.setUnameAndBuildTime("", "") }
-                ) {}
-            }
-            item { Spacer(modifier = Modifier.height(8.dp)) }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    val date = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                    backupLauncher.launch("susfs_${date}.json")
-                }
-            ) {
-                Icon(imageVector = Icons.Filled.Backup, contentDescription = null)
-                Text(
-                    modifier = Modifier.padding(start = 6.dp),
-                    text = stringResource(R.string.susfs_backup_title)
-                )
-            }
-            OutlinedButton(
-                modifier = Modifier.weight(1f),
-                onClick = { restoreLauncher.launch(arrayOf("application/json", "*/*")) }
-            ) {
-                Icon(imageVector = Icons.Filled.Restore, contentDescription = null)
-                Text(
-                    modifier = Modifier.padding(start = 6.dp),
-                    text = stringResource(R.string.restore)
-                )
             }
         }
     }
@@ -1003,6 +891,126 @@ fun SuSFSConfigScreen() {
                                     imageVector = Icons.Filled.Refresh,
                                     contentDescription = stringResource(R.string.refresh)
                                 )
+                            }
+                        }
+
+                        TooltipBox(
+                            positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+                            tooltip = {
+                                PlainTooltip {
+                                    Text(
+                                        text = stringResource(R.string.susfs_backup_title),
+                                    )
+                                }
+                            },
+                            state = rememberTooltipState()
+                        ) {
+                            var showDropdown by remember { mutableStateOf(false) }
+
+                            val context = LocalContext.current
+                            var backupFileUri by remember { mutableStateOf<Uri?>(null) }
+
+                            val restoreConfirmDialog = rememberCustomDialog { dismiss ->
+                                AlertDialog(
+                                    onDismissRequest = dismiss,
+                                    title = {
+                                        Text(stringResource(R.string.susfs_restore_confirm_title))
+                                    },
+                                    text = {
+                                        Text(stringResource(R.string.susfs_restore_confirm_description))
+                                    },
+                                    confirmButton = {
+                                        val susfsBackupInvalidFormat =
+                                            stringResource(R.string.susfs_backup_invalid_format)
+                                        val susfsRestoreSuccess =
+                                            stringResource(R.string.susfs_restore_success)
+                                        val rebootToApply = stringResource(R.string.reboot_to_apply)
+
+                                        TextButton(
+                                            onClick = {
+                                                backupFileUri?.let {
+                                                    context.contentResolver.openInputStream(it)
+                                                        ?.use { inputStream ->
+                                                            viewModel.restoreConfig(inputStream) { ok ->
+                                                                if (!ok) {
+                                                                    viewModel.postToast(
+                                                                        susfsBackupInvalidFormat
+                                                                    )
+                                                                } else {
+                                                                    viewModel.postToast(
+                                                                        susfsRestoreSuccess
+                                                                    )
+                                                                    viewModel.postToast(
+                                                                        rebootToApply
+                                                                    )
+                                                                }
+                                                            }
+
+                                                            dismiss()
+                                                        }
+                                                }
+                                            }
+                                        ) {
+                                            Text(stringResource(R.string.susfs_restore_confirm))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = dismiss) {
+                                            Text(stringResource(R.string.cancel))
+                                        }
+                                    }
+                                )
+                            }
+                            val backupLauncher = rememberLauncherForActivityResult(
+                                contract = ActivityResultContracts.CreateDocument("application/json")
+                            ) { uri ->
+                                if (uri == null) return@rememberLauncherForActivityResult
+
+                                context.contentResolver.openOutputStream(uri)
+                                    ?.let(viewModel::backupConfig)
+                            }
+
+                            val restoreLauncher = rememberLauncherForActivityResult(
+                                contract = ActivityResultContracts.OpenDocument()
+                            ) { uri ->
+                                if (uri == null) return@rememberLauncherForActivityResult
+
+                                backupFileUri = uri
+                                restoreConfirmDialog.show()
+                            }
+
+                            IconButton(
+                                onClick = {
+                                    showDropdown = true
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Backup,
+                                    contentDescription = stringResource(R.string.susfs_backup_title)
+                                )
+
+                                DropdownMenu(expanded = showDropdown, onDismissRequest = {
+                                    showDropdown = false
+                                }) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.susfs_backup_title)) },
+                                        onClick = {
+                                            val date = SimpleDateFormat(
+                                                "yyyyMMdd_HHmmss",
+                                                Locale.getDefault()
+                                            ).format(Date())
+                                            backupLauncher.launch("susfs_backup_${date}.json")
+                                            showDropdown = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.restore)) },
+                                        onClick = {
+                                            restoreLauncher.launch(arrayOf("application/json"))
+                                            showDropdown = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     },
@@ -1094,32 +1102,6 @@ fun SuSFSConfigScreen() {
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun BottomCenterOutlinedAction(
-    modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        OutlinedButton(
-            shape = RoundedCornerShape(999.dp),
-            onClick = onClick,
-        ) {
-            Icon(imageVector = icon, contentDescription = null)
-            Text(
-                modifier = Modifier.padding(start = 6.dp),
-                text = text,
-            )
         }
     }
 }
@@ -1431,9 +1413,9 @@ private fun SingleValueDialog(
 
 @Composable
 private fun AppEntryIcon(
+    modifier: Modifier = Modifier,
     packageName: String,
     packageInfo: android.content.pm.PackageInfo? = null,
-    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var iconDrawable by remember(packageName, packageInfo) { mutableStateOf<android.graphics.drawable.Drawable?>(null) }
@@ -1692,57 +1674,102 @@ private fun SlotInfoDialog(
     onUseUname: (String) -> Unit,
     onUseBuildTime: (String) -> Unit,
 ) {
+    LaunchedEffect(Unit) {
+        if (slotInfoList.isEmpty()) {
+            onRefresh()
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.susfs_slot_info_title)) },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(stringResource(R.string.susfs_slot_info_title))
+            }
+        },
         text = {
             LazyColumn(
-                modifier = Modifier.heightIn(max = 420.dp)
+                modifier = Modifier.heightIn(max = 420.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                item {
-                    Text(
-                        text = stringResource(R.string.susfs_current_active_slot, currentActiveSlot),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-                if (slotInfoList.isEmpty()) {
+                if (isLoading) {
                     item {
-                        Text(
-                            text = stringResource(R.string.susfs_slot_info_unavailable),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxWidth(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LoadingIndicator()
+                        }
                     }
                 } else {
-                    items(slotInfoList, key = { it.slotName }) { info ->
-                        val currentBadge = if (info.slotName == currentActiveSlot) {
-                            " (${stringResource(R.string.susfs_slot_current_badge)})"
-                        } else {
-                            ""
+                    item {
+                        Text(
+                            text = stringResource(
+                                R.string.susfs_current_active_slot,
+                                currentActiveSlot
+                            ),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    if (slotInfoList.isEmpty()) {
+                        item {
+                            Text(
+                                text = stringResource(R.string.susfs_slot_info_unavailable),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
-                        SettingsBaseWidget(
-                            icon = Icons.Filled.Storage,
-                            title = info.slotName + currentBadge,
-                            description = "${stringResource(R.string.susfs_slot_uname, info.uname)}\n${stringResource(R.string.susfs_slot_build_time, info.buildTime)}",
-                        ) {}
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f),
-                                onClick = { onUseUname(info.uname) }
-                            ) {
-                                Text(stringResource(R.string.susfs_slot_use_uname))
-                            }
-                            OutlinedButton(
-                                modifier = Modifier.weight(1f),
-                                onClick = { onUseBuildTime(info.buildTime) }
-                            ) {
-                                Text(stringResource(R.string.susfs_slot_use_build_time))
+                    } else {
+                        splicedLazyColumnGroup(
+                            slotInfoList,
+                            key = { _, item -> item.slotName }) { _, info ->
+                            Column {
+                                val currentBadge = if (info.slotName == currentActiveSlot) {
+                                    " (${stringResource(R.string.susfs_slot_current_badge)})"
+                                } else {
+                                    ""
+                                }
+                                SettingsBaseWidget(
+                                    modifier = Modifier.padding(top = 16.dp),
+                                    icon = Icons.Filled.Storage,
+                                    title = info.slotName + currentBadge,
+                                    enabled = false,
+                                    description = "${
+                                        stringResource(
+                                            R.string.susfs_slot_uname,
+                                            info.uname
+                                        )
+                                    }\n${
+                                        stringResource(
+                                            R.string.susfs_slot_build_time,
+                                            info.buildTime
+                                        )
+                                    }",
+                                    noVerticalPadding = true
+                                ) {}
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, end = 16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    TextButton(
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onUseUname(info.uname) }
+                                    ) {
+                                        Text(stringResource(R.string.susfs_slot_use_uname))
+                                    }
+                                    TextButton(
+                                        modifier = Modifier.weight(1f),
+                                        onClick = { onUseBuildTime(info.buildTime) }
+                                    ) {
+                                        Text(stringResource(R.string.susfs_slot_use_build_time))
+                                    }
+                                }
                             }
                         }
                     }
@@ -1750,7 +1777,7 @@ private fun SlotInfoDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            Button(
                 enabled = !isLoading,
                 onClick = onRefresh
             ) {
@@ -1758,10 +1785,8 @@ private fun SlotInfoDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Icon(imageVector = Icons.Filled.Close, contentDescription = null)
+            OutlinedButton(onClick = onDismiss) {
                 Text(
-                    modifier = Modifier.padding(start = 6.dp),
                     text = stringResource(R.string.close)
                 )
             }

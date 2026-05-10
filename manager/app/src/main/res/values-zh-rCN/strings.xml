@@ -496,7 +496,6 @@
     <string name="susfs_hide_mounts_for_nonsu_procs_description">决定是否要对非 Root 进程隐藏 SuS 挂载</string>
     <string name="susfs_hide_mounts_all_enabled">已启用对所有进程隐藏 SuS 挂载</string>
     <string name="susfs_hide_mounts_all_disabled">已禁用对所有进程隐藏 SuS 挂载</string>
-    <string name="susfs_hide_mounts_recommendation">建议在屏幕解锁后或在 service.sh 或 boot-completed.sh 阶段设置为禁用，这可以修复一些依赖 KSU 进程挂载的 root 应用的问题</string>
     <string name="susfs_hide_mounts_current_setting">当前设置: %s</string>
     <string name="susfs_hide_mounts_setting_all">对所有进程隐藏</string>
     <string name="susfs_hide_mounts_setting_non_ksu">仅对非 KSU 进程隐藏</string>
