@@ -68,6 +68,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -496,18 +497,21 @@ private fun SuSPathTab(
     val uiState = viewModel.uiState
     val pathEditDialog = rememberPathEditDialog(AddPathTarget.SusPath, viewModel)
     var appEntries by remember { mutableStateOf<List<SuSFSAppEntry>>(emptyList()) }
+    var isAppListLoading by remember { mutableStateOf(false) }
 
     var addAppDialog: DialogHandle? by remember { mutableStateOf(null) }
 
     addAppDialog = rememberCustomDialog { dismiss ->
         AddAppPathDialog(
             apps = appEntries,
-            isLoading = addAppDialog?.isShown ?: false,
+            isLoading = isAppListLoading,
             onDismiss = dismiss,
             onConfirm = { packageNames ->
                 viewModel.addAppPaths(packageNames)
                 coroutineScope.launch {
+                    isAppListLoading = true
                     appEntries = viewModel.loadSelectableApps()
+                    isAppListLoading = false
                 }
                 dismiss()
             }
@@ -574,7 +578,14 @@ private fun SuSPathTab(
                             title = stringResource(R.string.add_app_path),
                             description = null,
                             onClick = {
-                                addAppDialog?.show()
+                                coroutineScope.launch {
+                                    if (appEntries.isEmpty()) {
+                                        isAppListLoading = true
+                                        appEntries = viewModel.loadSelectableApps()
+                                        isAppListLoading = false
+                                    }
+                                    addAppDialog?.show()
+                                }
                             }
                         ) {}
                     }
@@ -740,51 +751,55 @@ private fun BasicTab(
                     title = stringResource(R.string.susfs_tab_basic_settings)
                 ) {
                     item {
-                        val state = rememberTextFieldState(initialText = uiState.unameValue)
+                        key(uiState.unameValue, uiState.buildTimeValue) {
+                            val state = rememberTextFieldState(initialText = uiState.unameValue)
 
-                        SettingsTextFieldWidget(
-                            icon = Icons.Filled.Edit,
-                            lineLimits = TextFieldLineLimits.SingleLine,
-                            title = stringResource(R.string.susfs_uname_label),
-                            state = state,
-                            onKeyboardAction = {
-                                keyboardController?.hide()
-                            }
-                        )
-
-                        LaunchedEffect(state) {
-                            snapshotFlow { state.text }
-                                .drop(1)
-                                .collect { newText ->
-                                    viewModel.setUnameAndBuildTime(
-                                        newText.toString(),
-                                        uiState.buildTimeValue
-                                    )
+                            SettingsTextFieldWidget(
+                                icon = Icons.Filled.Edit,
+                                lineLimits = TextFieldLineLimits.SingleLine,
+                                title = stringResource(R.string.susfs_uname_label),
+                                state = state,
+                                onKeyboardAction = {
+                                    keyboardController?.hide()
                                 }
+                            )
+
+                            LaunchedEffect(state) {
+                                snapshotFlow { state.text }
+                                    .drop(1)
+                                    .collect { newText ->
+                                        viewModel.setUnameAndBuildTime(
+                                            newText.toString(),
+                                            uiState.buildTimeValue
+                                        )
+                                    }
+                            }
                         }
                     }
                     item {
-                        val state = rememberTextFieldState(initialText = uiState.buildTimeValue)
+                        key(uiState.buildTimeValue, uiState.unameValue) {
+                            val state = rememberTextFieldState(initialText = uiState.buildTimeValue)
 
-                        SettingsTextFieldWidget(
-                            icon = Icons.Filled.Edit,
-                            lineLimits = TextFieldLineLimits.SingleLine,
-                            title = stringResource(R.string.susfs_build_time_label),
-                            state = state,
-                            onKeyboardAction = {
-                                keyboardController?.hide()
-                            }
-                        )
-
-                        LaunchedEffect(state) {
-                            snapshotFlow { state.text }
-                                .drop(1)
-                                .collect { newText ->
-                                    viewModel.setUnameAndBuildTime(
-                                        uiState.unameValue,
-                                        newText.toString()
-                                    )
+                            SettingsTextFieldWidget(
+                                icon = Icons.Filled.Edit,
+                                lineLimits = TextFieldLineLimits.SingleLine,
+                                title = stringResource(R.string.susfs_build_time_label),
+                                state = state,
+                                onKeyboardAction = {
+                                    keyboardController?.hide()
                                 }
+                            )
+
+                            LaunchedEffect(state) {
+                                snapshotFlow { state.text }
+                                    .drop(1)
+                                    .collect { newText ->
+                                        viewModel.setUnameAndBuildTime(
+                                            uiState.unameValue,
+                                            newText.toString()
+                                        )
+                                    }
+                            }
                         }
                     }
                     item {
@@ -889,18 +904,44 @@ fun SuSFSConfigScreen() {
                             tooltip = {
                                 PlainTooltip {
                                     Text(
-                                        text = stringResource(R.string.refresh),
+                                        text = stringResource(R.string.susfs_reset_all_config),
                                     )
                                 }
                             },
                             state = rememberTooltipState()
                         ) {
+                            val context = LocalContext.current
+                            var resetTapCount by remember { mutableStateOf(0) }
+                            var lastResetTapAt by remember { mutableStateOf(0L) }
                             IconButton(
-                                onClick = { viewModel.refresh() }
+                                onClick = {
+                                    val now = System.currentTimeMillis()
+                                    val nextTapCount = if (now - lastResetTapAt <= 1_000) {
+                                        resetTapCount + 1
+                                    } else {
+                                        1
+                                    }
+                                    lastResetTapAt = now
+
+                                    if (nextTapCount >= 5) {
+                                        resetTapCount = 0
+                                        lastResetTapAt = 0L
+                                        viewModel.resetAllSusfsConfig()
+                                    } else {
+                                        resetTapCount = nextTapCount
+                                        val remain = 5 - nextTapCount
+                                        viewModel.postToast(
+                                            context.getString(
+                                                R.string.susfs_reset_all_tap_hint,
+                                                remain
+                                            )
+                                        )
+                                    }
+                                }
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.Refresh,
-                                    contentDescription = stringResource(R.string.refresh)
+                                    contentDescription = stringResource(R.string.susfs_reset_all_config)
                                 )
                             }
                         }
@@ -939,27 +980,34 @@ fun SuSFSConfigScreen() {
 
                                         TextButton(
                                             onClick = {
-                                                backupFileUri?.let {
-                                                    context.contentResolver.openInputStream(it)
-                                                        ?.use { inputStream ->
-                                                            viewModel.restoreConfig(inputStream) { ok ->
-                                                                if (!ok) {
-                                                                    viewModel.postToast(
-                                                                        susfsBackupInvalidFormat
-                                                                    )
-                                                                } else {
-                                                                    viewModel.postToast(
-                                                                        susfsRestoreSuccess
-                                                                    )
-                                                                    viewModel.postToast(
-                                                                        rebootToApply
-                                                                    )
-                                                                }
-                                                            }
-
-                                                            dismiss()
-                                                        }
+                                                val targetUri = backupFileUri
+                                                if (targetUri == null) {
+                                                    viewModel.postToast(susfsBackupInvalidFormat)
+                                                    dismiss()
+                                                    return@TextButton
                                                 }
+                                                val inputStream =
+                                                    context.contentResolver.openInputStream(targetUri)
+                                                if (inputStream == null) {
+                                                    viewModel.postToast(susfsBackupInvalidFormat)
+                                                    dismiss()
+                                                    return@TextButton
+                                                }
+                                                viewModel.restoreConfig(inputStream) { ok ->
+                                                    if (!ok) {
+                                                        viewModel.postToast(
+                                                            susfsBackupInvalidFormat
+                                                        )
+                                                    } else {
+                                                        viewModel.postToast(
+                                                            susfsRestoreSuccess
+                                                        )
+                                                        viewModel.postToast(
+                                                            rebootToApply
+                                                        )
+                                                    }
+                                                }
+                                                dismiss()
                                             }
                                         ) {
                                             Text(stringResource(R.string.susfs_restore_confirm))
@@ -1629,6 +1677,18 @@ private fun AddAppPathDialog(
                         .padding(top = 8.dp)
                         .heightIn(max = 360.dp)
                 ) {
+                    if (isLoading) {
+                        item(key = "loading") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                LoadingIndicator()
+                            }
+                        }
+                    }
                     items(filtered, key = { it.packageName }) { app ->
                         val checked = selected.contains(app.packageName)
                         SettingsBaseWidget(

@@ -152,6 +152,7 @@
     <string name="settings_check_update_summary">自动检查模块和管理器更新</string>
     <string name="grant_root_failed">获取 root 失败！</string>
     <string name="home_pr_build_warning">当前为 PR 调试构建，请勿在生产环境中使用！</string>
+    <string name="home_susfs_third_party_conflict_warning">检测到已启用的第三方 SuSFS 管理模块，可能与当前管理器内置的 SuSFS 功能冲突！</string>
     <string name="home_pr_kernel_warning">当前内核包含 PR 签名支持，这不是一个生产内核！</string>
     <string name="action">执行</string>
     <string name="close">关闭</string>
@@ -398,6 +399,11 @@
     <string name="susfs_current_value">当前值: %s</string>
     <string name="susfs_current_build_time">当前构建时间: %s</string>
     <string name="susfs_reset_to_default">重置为默认值</string>
+    <string name="susfs_uname_build_time_updated">已更新 SuSFS 的 uname/构建时间</string>
+    <string name="susfs_uname_build_time_reset">已将 SuSFS 的 uname/构建时间重置为默认值</string>
+    <string name="susfs_reset_all_config">重置全部 SuSFS 配置</string>
+    <string name="susfs_reset_all_tap_hint">再点击 %1$d 次重置全部 SuSFS 配置</string>
+    <string name="susfs_reset_all_success">已重置 SuSFS 配置，重启后生效</string>
     <string name="susfs_apply">应用</string>
     <string name="susfs_reset_confirm_title">确认重置</string>
     <string name="susfs_binary_not_found">无法找到 ksu_susfs 文件</string>

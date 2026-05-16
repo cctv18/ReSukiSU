@@ -3,6 +3,7 @@ package com.resukisu.resukisu.ui.viewmodel
 import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
+import android.os.Build
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -25,7 +26,6 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
-import java.io.InputStreamReader
 import java.io.OutputStream
 
 private inline val defaultSusfsValue: String
@@ -150,11 +150,20 @@ class SuSFSScreenViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val uname = unameValue.trim().ifEmpty { defaultSusfsValue }
             val buildTime = buildTimeValue.trim().ifEmpty { defaultSusfsValue }
-            if (uname == defaultSusfsValue && buildTime == defaultSusfsValue) {
-                runCommand("del_uname", showSuccessSnackbar = false)
+            if (uname == uiState.unameValue && buildTime == uiState.buildTimeValue) {
                 return@launch
             }
-            runCommand("set_uname ${shellQuote(uname)} ${shellQuote(buildTime)}")
+            if (uname == defaultSusfsValue && buildTime == defaultSusfsValue) {
+                val success = runCommand("del_uname", showSuccessSnackbar = false)
+                if (success) {
+                    postToast(ksuApp.getString(R.string.susfs_uname_build_time_reset))
+                }
+                return@launch
+            }
+            val success = runCommand("set_uname ${shellQuote(uname)} ${shellQuote(buildTime)}")
+            if (success) {
+                postToast(ksuApp.getString(R.string.susfs_uname_build_time_updated))
+            }
         }
     }
 
@@ -241,8 +250,18 @@ class SuSFSScreenViewModel : ViewModel() {
 
     fun restoreConfig(inputStream: InputStream, onFinish: (Boolean) -> Unit) {
         viewModelScope.launch(Dispatchers.IO) {
+            val bytes: ByteArray = runCatching {
+                inputStream.use { it.readBytes() }
+            }.getOrElse {
+                ByteArray(0)
+            }
+            if (bytes.isEmpty()) {
+                onFinish(false)
+                return@launch
+            }
+
             val ok = runCatching {
-                JSONObject(InputStreamReader(inputStream).readText())
+                JSONObject(String(bytes, Charsets.UTF_8))
                 true
             }.getOrDefault(false)
 
@@ -251,10 +270,43 @@ class SuSFSScreenViewModel : ViewModel() {
                 return@launch
             }
 
-            SuFileOutputStream.open(SuFile(CONFIG_PATH)).use { inputStream.copyTo(it) }
+            val writeOk = runCatching {
+                SuFileOutputStream.open(SuFile(CONFIG_PATH)).use { os ->
+                    bytes.inputStream().use { it.copyTo(os) }
+                }
+                true
+            }.getOrDefault(false)
+            if (!writeOk) {
+                onFinish(false)
+                return@launch
+            }
 
             refresh()
             onFinish(true)
+        }
+    }
+
+    fun resetAllSusfsConfig() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val deleted = runCatching {
+                val file = SuFile(CONFIG_PATH).apply {
+                    shell = getRootShell()
+                }
+                if (!file.exists()) {
+                    true
+                } else if (file.delete()) {
+                    true
+                } else {
+                    false
+                }
+            }.getOrDefault(false)
+
+            if (deleted) {
+                refresh()
+                postToast(ksuApp.getString(R.string.susfs_reset_all_success))
+            } else {
+                postToast(ksuApp.getString(R.string.operation_failed))
+            }
         }
     }
 
@@ -269,17 +321,27 @@ class SuSFSScreenViewModel : ViewModel() {
     }
 
     suspend fun loadSelectableApps(): List<SuSFSAppEntry> = withContext(Dispatchers.IO) {
-        val entries = SuperUserViewModel.apps
+        val packageManager = ksuApp.packageManager
+        val packageInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getInstalledPackages(android.content.pm.PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getInstalledPackages(0)
+        }
+
+        val entries = packageInfos
             .asSequence()
-            .filter { appInfo ->
-                val info = appInfo.packageInfo.applicationInfo ?: return@filter false
+            .filter { packageInfo ->
+                val info = packageInfo.applicationInfo ?: return@filter false
                 (info.flags and ApplicationInfo.FLAG_SYSTEM) == 0
             }
-            .map { appInfo ->
+            .map { packageInfo ->
+                val appInfo = packageInfo.applicationInfo
                 SuSFSAppEntry(
-                    packageName = appInfo.packageName,
-                    label = appInfo.label.ifBlank { appInfo.packageName },
-                    packageInfo = appInfo.packageInfo,
+                    packageName = packageInfo.packageName,
+                    label = appInfo?.loadLabel(packageManager)?.toString()?.ifBlank { packageInfo.packageName }
+                        ?: packageInfo.packageName,
+                    packageInfo = packageInfo,
                 )
             }
             .distinctBy { it.packageName }

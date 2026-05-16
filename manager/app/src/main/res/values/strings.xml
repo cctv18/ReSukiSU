@@ -406,6 +406,11 @@
     <string name="susfs_current_value">Current value: %s</string>
     <string name="susfs_current_build_time">Current build time: %s</string>
     <string name="susfs_reset_to_default">Reset to Default</string>
+    <string name="susfs_uname_build_time_updated">Updated SuSFS uname/build time</string>
+    <string name="susfs_uname_build_time_reset">Reset SuSFS uname/build time to defaults</string>
+    <string name="susfs_reset_all_config">Reset All SuSFS Config</string>
+    <string name="susfs_reset_all_tap_hint">Tap %1$d more times to reset all SuSFS config</string>
+    <string name="susfs_reset_all_success">SuSFS config reset. Effective after reboot</string>
     <string name="susfs_apply">Apply</string>
     <string name="susfs_reset_confirm_title">Confirm Reset</string>
     <string name="susfs_binary_not_found">Cannot find ksu_susfs file</string>
