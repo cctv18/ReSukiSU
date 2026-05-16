@@ -86,7 +86,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ui.component.DialogHandle
 import com.resukisu.resukisu.ui.component.SwipeableSnackbarHost
@@ -109,6 +108,9 @@ import com.resukisu.resukisu.ui.viewmodel.SuSFSFeatureStatus
 import com.resukisu.resukisu.ui.viewmodel.SuSFSScreenViewModel
 import com.resukisu.resukisu.ui.viewmodel.SuSFSStaticKstatEntry
 import com.resukisu.resukisu.ui.viewmodel.SuperUserViewModel
+import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -1473,32 +1475,26 @@ private fun SingleValueDialog(
 @Composable
 private fun AppEntryIcon(
     modifier: Modifier = Modifier,
-    packageName: String,
     packageInfo: android.content.pm.PackageInfo? = null,
 ) {
-    val context = LocalContext.current
-    var iconDrawable by remember(packageName, packageInfo) { mutableStateOf<android.graphics.drawable.Drawable?>(null) }
-
-    LaunchedEffect(packageName, packageInfo) {
-        iconDrawable = runCatching {
-            packageInfo?.applicationInfo?.loadIcon(context.packageManager)
-                ?: context.packageManager.getApplicationIcon(packageName)
-        }.getOrNull()
-    }
-
-    if (iconDrawable != null) {
-        Image(
-            painter = rememberDrawablePainter(iconDrawable!!),
-            contentDescription = null,
-            modifier = modifier.clip(RoundedCornerShape(8.dp))
-        )
-    } else {
+    if (packageInfo == null) {
         Icon(
             imageVector = Icons.Filled.Apps,
             contentDescription = null,
             modifier = modifier
         )
+        return
     }
+
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(packageInfo)
+            .crossfade(true)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .build(),
+        contentDescription = null,
+        modifier = modifier.clip(RoundedCornerShape(8.dp))
+    )
 }
 
 @Composable
@@ -1698,7 +1694,6 @@ private fun AddAppPathDialog(
                             description = app.packageName,
                             rowHeader = {
                                 AppEntryIcon(
-                                    packageName = app.packageName,
                                     packageInfo = app.packageInfo,
                                     modifier = Modifier.size(24.dp)
                                 )

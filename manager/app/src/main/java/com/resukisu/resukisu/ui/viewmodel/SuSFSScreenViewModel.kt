@@ -427,7 +427,7 @@ class SuSFSScreenViewModel : ViewModel() {
                 Shell.EXECUTOR,
                 connection
             )
-            task?.let { Shell.getShell().execTask(it) } ?: continuation.resume(null)
+            task?.let { Shell.getShell().execTask(it) }
         } catch (t: Throwable) {
             Log.e(SUSFS_VM_TAG, "connectKsuService failed", t)
             if (continuation.isActive) {
