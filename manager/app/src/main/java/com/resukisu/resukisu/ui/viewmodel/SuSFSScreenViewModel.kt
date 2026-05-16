@@ -1,9 +1,13 @@
 package com.resukisu.resukisu.ui.viewmodel
 
 import android.annotation.SuppressLint
-import android.content.pm.ApplicationInfo
+import android.content.ComponentName
+import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageInfo
 import android.os.Build
+import android.os.IBinder
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,27 +15,54 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.resukisu.resukisu.R
 import com.resukisu.resukisu.ksuApp
+import com.resukisu.resukisu.ui.KsuService
 import com.resukisu.resukisu.ui.util.execKsud
 import com.resukisu.resukisu.ui.util.getRootShell
 import com.resukisu.resukisu.ui.util.getSuSFSFeatures
 import com.resukisu.resukisu.ui.util.getSuSFSSlotInfoJson
 import com.resukisu.resukisu.ui.util.getSuSFSStatus
 import com.resukisu.resukisu.ui.util.getSuSFSVersion
+import com.resukisu.zako.IKsuInterface
+import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.io.SuFile
 import com.topjohnwu.superuser.io.SuFileInputStream
 import com.topjohnwu.superuser.io.SuFileOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
 import java.io.OutputStream
+import kotlin.coroutines.resume
 
 private inline val defaultSusfsValue: String
     get() = "default"
 
 private const val CONFIG_PATH = "/data/adb/ksu/.susfs.json"
+private const val TAG = "SuSFSScreenViewModel"
+private const val DEFAULT_SUSFS_CONFIG_TEMPLATE = """{
+  "common": {
+    "version": "default",
+    "release": "default",
+    "avc_spoofing": false,
+    "enable_susfs_log": false,
+    "hide_sus_mnts_for_non_su_procs": false
+  },
+  "sus_path": {
+    "sus_path_loop": [],
+    "sus_path": []
+  },
+  "sus_map": [],
+  "kstat": {
+    "sus_kstat": [],
+    "update_kstat": [],
+    "full_clone": [],
+    "statically": []
+  }
+}
+"""
 
 data class SuSFSFeatureStatus(
     val key: String,
@@ -108,6 +139,8 @@ class SuSFSScreenViewModel : ViewModel() {
 
     var slotInfoLoading by mutableStateOf(true)
         private set
+
+    private var serviceConnection: ServiceConnection? = null
 
     init {
         refresh()
@@ -288,20 +321,15 @@ class SuSFSScreenViewModel : ViewModel() {
 
     fun resetAllSusfsConfig() {
         viewModelScope.launch(Dispatchers.IO) {
-            val deleted = runCatching {
-                val file = SuFile(CONFIG_PATH).apply {
-                    shell = getRootShell()
+            val reset = runCatching {
+                SuFileOutputStream.open(SuFile(CONFIG_PATH)).use { os ->
+                    os.write(DEFAULT_SUSFS_CONFIG_TEMPLATE.toByteArray(Charsets.UTF_8))
+                    os.flush()
                 }
-                if (!file.exists()) {
-                    true
-                } else if (file.delete()) {
-                    true
-                } else {
-                    false
-                }
+                true
             }.getOrDefault(false)
 
-            if (deleted) {
+            if (reset) {
                 refresh()
                 postToast(ksuApp.getString(R.string.susfs_reset_all_success))
             } else {
@@ -322,19 +350,13 @@ class SuSFSScreenViewModel : ViewModel() {
 
     suspend fun loadSelectableApps(): List<SuSFSAppEntry> = withContext(Dispatchers.IO) {
         val packageManager = ksuApp.packageManager
-        val packageInfos = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            packageManager.getInstalledPackages(android.content.pm.PackageManager.PackageInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION")
-            packageManager.getInstalledPackages(0)
-        }
+        val packageInfos = fetchInstalledPackagesViaRootService()
+            .ifEmpty { getInstalledPackagesFallback() }
 
         val entries = packageInfos
             .asSequence()
-            .filter { packageInfo ->
-                val info = packageInfo.applicationInfo ?: return@filter false
-                (info.flags and ApplicationInfo.FLAG_SYSTEM) == 0
-            }
+            .filter { packageInfo -> packageInfo.applicationInfo != null }
+            .filter { packageInfo -> packageInfo.packageName != ksuApp.packageName }
             .map { packageInfo ->
                 val appInfo = packageInfo.applicationInfo
                 SuSFSAppEntry(
@@ -348,6 +370,82 @@ class SuSFSScreenViewModel : ViewModel() {
             .sortedBy { it.label.lowercase() }
             .toList()
         return@withContext entries
+    }
+
+    private fun getInstalledPackagesFallback(): List<PackageInfo> {
+        val packageManager = ksuApp.packageManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getInstalledPackages(android.content.pm.PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getInstalledPackages(0)
+        }
+    }
+
+    private suspend fun fetchInstalledPackagesViaRootService(): List<PackageInfo> {
+        val binder = connectKsuService() ?: return emptyList()
+        return try {
+            val remote = IKsuInterface.Stub.asInterface(binder) ?: return emptyList()
+            val total = remote.packageCount
+            val pageSize = 100
+            val result = mutableListOf<PackageInfo>()
+            var start = 0
+
+            while (start < total) {
+                val page = remote.getPackages(start, pageSize)
+                if (page.isEmpty()) break
+                result += page
+                start += page.size
+            }
+            result
+        } catch (t: Throwable) {
+            Log.e(TAG, "fetchInstalledPackagesViaRootService failed", t)
+            emptyList()
+        } finally {
+            stopKsuService()
+        }
+    }
+
+    private suspend fun connectKsuService(): IBinder? = suspendCancellableCoroutine { continuation ->
+        val connection = object : ServiceConnection {
+            override fun onServiceDisconnected(name: ComponentName?) {
+                serviceConnection = null
+            }
+
+            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+                if (continuation.isActive) {
+                    continuation.resume(binder)
+                }
+            }
+        }
+        serviceConnection = connection
+
+        val intent = Intent(ksuApp, KsuService::class.java)
+        try {
+            val task = com.topjohnwu.superuser.ipc.RootService.bindOrTask(
+                intent,
+                Shell.EXECUTOR,
+                connection
+            )
+            task?.let { Shell.getShell().execTask(it) } ?: continuation.resume(null)
+        } catch (t: Throwable) {
+            Log.e(TAG, "connectKsuService failed", t)
+            if (continuation.isActive) {
+                continuation.resume(null)
+            }
+        }
+    }
+
+    private fun stopKsuService() {
+        if (serviceConnection == null) return
+        try {
+            val intent = Intent(ksuApp, KsuService::class.java)
+            com.topjohnwu.superuser.ipc.RootService.stop(intent)
+        } catch (t: Throwable) {
+            Log.e(TAG, "stopKsuService failed", t)
+        } finally {
+            serviceConnection = null
+        }
     }
     fun removeSusPath(path: String) = removePath(path) { "del_sus_path $it" }
     fun removeSusLoopPath(path: String) = removePath(path) { "del_sus_path_loop $it" }
