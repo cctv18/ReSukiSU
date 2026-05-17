@@ -500,6 +500,9 @@ private fun SuSPathTab(
     val pathEditDialog = rememberPathEditDialog(AddPathTarget.SusPath, viewModel)
     var appEntries by remember { mutableStateOf<List<SuSFSAppEntry>>(emptyList()) }
     var isAppListLoading by remember { mutableStateOf(false) }
+    var shouldLoadAppsAfterCacheReady by remember { mutableStateOf(false) }
+    val isAppCacheReady = SuperUserViewModel.isAppCacheReady
+    val isAppCacheLoading = SuperUserViewModel.isAppCacheLoading
 
     var addAppDialog: DialogHandle? by remember { mutableStateOf(null) }
 
@@ -507,7 +510,7 @@ private fun SuSPathTab(
         AddAppPathDialog(
             apps = appEntries,
             existingSusPaths = uiState.susPaths,
-            isLoading = isAppListLoading,
+            isLoading = isAppListLoading || !isAppCacheReady || isAppCacheLoading,
             onDismiss = dismiss,
             onConfirm = { packageNames ->
                 viewModel.addAppPaths(packageNames)
@@ -519,6 +522,15 @@ private fun SuSPathTab(
                 dismiss()
             }
         )
+    }
+
+    LaunchedEffect(isAppCacheReady, isAppCacheLoading, shouldLoadAppsAfterCacheReady) {
+        if (shouldLoadAppsAfterCacheReady && isAppCacheReady && !isAppCacheLoading && !isAppListLoading) {
+            isAppListLoading = true
+            appEntries = viewModel.loadSelectableApps()
+            isAppListLoading = false
+            shouldLoadAppsAfterCacheReady = false
+        }
     }
 
     val appPathRegex = remember { Regex(".*/Android/data/([^/]+)/?.*") }
@@ -582,7 +594,13 @@ private fun SuSPathTab(
                             description = null,
                             onClick = {
                                 coroutineScope.launch {
+                                    if (!isAppCacheReady || isAppCacheLoading) {
+                                        shouldLoadAppsAfterCacheReady = true
+                                        addAppDialog?.show()
+                                        return@launch
+                                    }
                                     if (appEntries.isEmpty()) {
+                                        shouldLoadAppsAfterCacheReady = false
                                         isAppListLoading = true
                                         appEntries = viewModel.loadSelectableApps()
                                         isAppListLoading = false
@@ -1696,30 +1714,42 @@ private fun AddAppPathDialog(
                                 LoadingIndicator()
                             }
                         }
-                    }
-                    items(filtered, key = { it.packageName }) { app ->
-                        val checked = selected.contains(app.packageName)
-                        SettingsBaseWidget(
-                            icon = null,
-                            iconPlaceholder = false,
-                            title = app.label,
-                            description = app.packageName,
-                            rowHeader = {
-                                AppEntryIcon(
-                                    packageInfo = app.packageInfo,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            },
-                            onClick = {
-                                selected = if (checked) selected - app.packageName else selected + app.packageName
-                            }
-                        ) {
-                            if (checked) {
-                                Icon(
-                                    imageVector = Icons.Filled.Edit,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
+                    } else if (filtered.isEmpty()) {
+                        item(key = "empty") {
+                            SettingsBaseWidget(
+                                icon = null,
+                                iconPlaceholder = false,
+                                title = stringResource(R.string.no_apps_found),
+                                description = null,
+                                enabled = false
+                            ) {}
+                        }
+                    } else {
+                        items(filtered, key = { it.packageName }) { app ->
+                            val checked = selected.contains(app.packageName)
+                            SettingsBaseWidget(
+                                icon = null,
+                                iconPlaceholder = false,
+                                title = app.label,
+                                description = app.packageName,
+                                rowHeader = {
+                                    AppEntryIcon(
+                                        packageInfo = app.packageInfo,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                },
+                                onClick = {
+                                    selected =
+                                        if (checked) selected - app.packageName else selected + app.packageName
+                                }
+                            ) {
+                                if (checked) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Edit,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
                             }
                         }
                     }

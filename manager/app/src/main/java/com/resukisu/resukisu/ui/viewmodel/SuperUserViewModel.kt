@@ -74,6 +74,8 @@ class SuperUserViewModel : ViewModel() {
         private const val TAG = "SuperUserViewModel"
         private val appsLock = Any()
         var apps by mutableStateOf<List<AppInfo>>(emptyList())
+        var isAppCacheReady by mutableStateOf(false)
+        var isAppCacheLoading by mutableStateOf(false)
 
         @JvmStatic
         fun getAppIconDrawable(context: Context, packageName: String): Drawable? {
@@ -324,9 +326,15 @@ class SuperUserViewModel : ViewModel() {
 
     suspend fun fetchAppList() {
         isRefreshing = true
+        isAppCacheLoading = true
+        isAppCacheReady = false
         loadingProgress = 0f
 
-        val binder = connectKsuService() ?: run { isRefreshing = false; return }
+        val binder = connectKsuService() ?: run {
+            isRefreshing = false
+            isAppCacheLoading = false
+            return
+        }
 
         withContext(Dispatchers.IO) {
             val pm = ksuApp.packageManager
@@ -361,8 +369,10 @@ class SuperUserViewModel : ViewModel() {
                 appGroups = groupAppsByUid(filteredApps)
             }
             loadingProgress = 1f
+            isAppCacheReady = true
         }
         isRefreshing = false
+        isAppCacheLoading = false
     }
 
     val appGroupList by derivedStateOf {
