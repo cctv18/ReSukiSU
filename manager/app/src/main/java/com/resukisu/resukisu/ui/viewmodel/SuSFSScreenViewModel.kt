@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.os.Build
 import android.os.IBinder
@@ -349,6 +350,28 @@ class SuSFSScreenViewModel : ViewModel() {
     }
 
     suspend fun loadSelectableApps(): List<SuSFSAppEntry> = withContext(Dispatchers.IO) {
+        val superUserEntries = SuperUserViewModel.apps
+            .asSequence()
+            .mapNotNull { app ->
+                val applicationInfo = app.packageInfo.applicationInfo ?: return@mapNotNull null
+                val isSystemApp = (applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                if (isSystemApp || app.packageName.isBlank()) {
+                    null
+                } else {
+                    SuSFSAppEntry(
+                        packageName = app.packageName,
+                        label = app.label.ifBlank { app.packageName },
+                        packageInfo = app.packageInfo,
+                    )
+                }
+            }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }
+            .toList()
+        if (superUserEntries.isNotEmpty()) {
+            return@withContext superUserEntries
+        }
+
         val packageManager = ksuApp.packageManager
         val packageInfos = fetchInstalledPackagesViaRootService()
             .ifEmpty { getInstalledPackagesFallback() }

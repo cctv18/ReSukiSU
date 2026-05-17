@@ -506,6 +506,7 @@ private fun SuSPathTab(
     addAppDialog = rememberCustomDialog { dismiss ->
         AddAppPathDialog(
             apps = appEntries,
+            existingSusPaths = uiState.susPaths,
             isLoading = isAppListLoading,
             onDismiss = dismiss,
             onConfirm = { packageNames ->
@@ -1640,6 +1641,7 @@ private fun KstatPairField(
 @Composable
 private fun AddAppPathDialog(
     apps: List<SuSFSAppEntry>,
+    existingSusPaths: List<String>,
     isLoading: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (List<String>) -> Unit,
@@ -1647,9 +1649,19 @@ private fun AddAppPathDialog(
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf(setOf<String>()) }
 
-    val filtered = remember(apps, search) {
-        if (search.isBlank()) apps
-        else apps.filter {
+    val addedPackageNames = remember(existingSusPaths) {
+        existingSusPaths.mapNotNull { path ->
+            Regex(".*/Android/data/([^/]+)/?.*").find(path)?.groupValues?.getOrNull(1)
+        }.toSet()
+    }
+
+    val availableApps = remember(apps, addedPackageNames) {
+        apps.filterNot { it.packageName in addedPackageNames }
+    }
+
+    val filtered = remember(availableApps, search) {
+        if (search.isBlank()) availableApps
+        else availableApps.filter {
             it.label.contains(search, ignoreCase = true) || it.packageName.contains(search, ignoreCase = true)
         }
     }
